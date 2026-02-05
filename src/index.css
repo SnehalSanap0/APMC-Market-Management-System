@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* Theme Configuration */
+@theme {
+    --color-primary: #9D174D;
+    --color-primary-light: #be185d;
+    --color-background: #f8fafc;
+    --color-accent: #10B981;
+
+    --font-display: 'Noto Sans Devanagari', 'Inter', sans-serif;
+    --font-sans: 'Inter', 'Noto Sans Devanagari', sans-serif;
+
+    --radius: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+}
+
+/* Base Styles */
+@layer base {
+    body {
+        font-family: var(--font-sans);
+        background-color: var(--color-background);
+    }
+}
+
+/* Component Styles */
+@layer components {
+    .devanagari {
+        font-family: var(--font-display);
+    }
+
+    .receipt-paper {
+        background-image: radial-gradient(#94a3b8 0.5px, transparent 0.5px);
+        background-size: 20px 20px;
+    }
+}
+
+/* Utility Styles */
+@layer utilities {
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .no-print {
+        display: none;
+    }
+
+    .print-container {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    body {
+        background: white !important;
+    }
+}
