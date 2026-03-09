@@ -2,20 +2,24 @@ import { useState } from 'react';
 import './App.css';
 import {
   Dashboard,
-  SaudaPatti,
   HishobPatti,
   MarketOperations,
   JamaPavti,
-  VyapariKhatavni
+  VyapariKhatavni,
+  MerchantBill,
+  DhadaBook
 } from './components/pages';
+import MasterLayout from './components/pages/masters/MasterLayout';
 
 const pages = [
   { id: 'dashboard', name: 'Dashboard', component: Dashboard },
-  { id: 'sauda-patti', name: 'Sauda Patti', component: SaudaPatti },
+  { id: 'masters', name: 'Masters', component: MasterLayout },
   { id: 'hishob-patti', name: 'Hishob Patti', component: HishobPatti },
+  { id: 'merchant-bill', name: 'Merchant Bill', component: MerchantBill },
   { id: 'market-ops', name: 'Market Operations', component: MarketOperations },
   { id: 'jama-pavti', name: 'Jama Pavti', component: JamaPavti },
   { id: 'khatavni', name: 'Vyapari Khatavni', component: VyapariKhatavni },
+  { id: 'dhada-book', name: 'Dhada Book', component: DhadaBook },
 ];
 
 function App() {
@@ -33,8 +37,8 @@ function App() {
               key={page.id}
               onClick={() => setCurrentPage(page.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentPage === page.id
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                  : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                : 'text-slate-600 hover:bg-slate-100'
                 }`}
             >
               {page.name}
