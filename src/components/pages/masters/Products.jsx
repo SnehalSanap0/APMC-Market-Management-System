@@ -91,12 +91,12 @@ export default function Products() {
                         <h3 className="text-lg font-bold mb-4">{editingId ? 'Edit Product' : 'Add Product'}</h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
-                                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full border-slate-300 rounded-lg" />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Product Name <span className="text-red-500">*</span></label>
+                                <input required placeholder="e.g. Onion, Tomato" type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Unit</label>
-                                <input placeholder="e.g., Quintal, Crate, Kg" type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full border-slate-300 rounded-lg" />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Unit / Category <span className="text-red-500">*</span></label>
+                                <input required placeholder="e.g. Quintal, Crate, Kg, Dozen" type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>

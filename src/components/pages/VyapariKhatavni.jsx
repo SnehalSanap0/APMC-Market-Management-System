@@ -54,7 +54,7 @@ export default function VyapariKhatavni() {
     const currentBalance = ledger.length > 0 ? ledger[ledger.length - 1].runningBalance : 0;
 
     return (
-        <div className="bg-slate-50 min-h-screen p-4 md:p-8 text-slate-900">
+        <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full">
             <div className="max-w-6xl mx-auto space-y-6">
 
                 {/* Header & Controls */}

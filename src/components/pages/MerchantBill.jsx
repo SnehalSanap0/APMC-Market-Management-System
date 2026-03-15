@@ -1,5 +1,26 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { LockKeyhole, Printer } from 'lucide-react';
+
+// Helper function to convert numbers to Indian Rupee words
+function numberToWords(num) {
+    if (num === 0) return 'Zero';
+    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    
+    const format = (n) => {
+        if (n < 20) return a[n];
+        if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
+        if (n < 1000) return a[Math.floor(n / 100)] + 'Hundred ' + (n % 100 !== 0 ? 'and ' + format(n % 100) : '');
+        if (n < 100000) return format(Math.floor(n / 1000)) + 'Thousand ' + (n % 1000 !== 0 ? format(n % 1000) : '');
+        if (n < 10000000) return format(Math.floor(n / 100000)) + 'Lakh ' + (n % 100000 !== 0 ? format(n % 100000) : '');
+        return format(Math.floor(n / 10000000)) + 'Crore ' + (n % 10000000 !== 0 ? format(n % 10000000) : '');
+    };
+    
+    // Handle decimals for paise (optional, rounding for now as it's common)
+    const intPart = Math.floor(Math.round(num));
+    return format(intPart).trim() + ' Rupees';
+}
 
 export default function MerchantBill() {
     const [loading, setLoading] = useState(false);
@@ -9,8 +30,11 @@ export default function MerchantBill() {
 
     // Form
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [billNo, setBillNo] = useState('');
     const [selectedMerchant, setSelectedMerchant] = useState('');
+
+    const [showKeyModal, setShowKeyModal] = useState(false);
+    const [securityKey, setSecurityKey] = useState('');
+    const [keyError, setKeyError] = useState('');
 
     // Fetched Data
     const [items, setItems] = useState([]);
@@ -26,7 +50,6 @@ export default function MerchantBill() {
 
     useEffect(() => {
         fetchMasters();
-        generateBillNo();
     }, []);
 
     // Auto-fetch when Merchant or Date changes
@@ -42,12 +65,6 @@ export default function MerchantBill() {
     const fetchMasters = async () => {
         const { data } = await supabase.from('merchants').select('*').order('name');
         if (data) setMerchants(data);
-    };
-
-    const generateBillNo = () => {
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        setBillNo(`MB-${today}-${random}`);
     };
 
     const fetchDailyTransactions = async () => {
@@ -115,103 +132,75 @@ export default function MerchantBill() {
     };
 
     const totalCharges = Object.values(fees).reduce((sum, val) => sum + val, 0);
-    const netAmount = grossTotal - totalCharges;
+    const netAmount = grossTotal + totalCharges;
 
-    // Save
-    const handleSave = async () => {
-        if (!selectedMerchant) return alert('Select a merchant');
-        if (items.length === 0) return alert('No transactions found to generate bill.');
-
-        setLoading(true);
-
-        const { data: bill, error: billError } = await supabase
-            .from('merchant_bills')
-            .insert([{
-                bill_no: billNo,
-                date,
-                merchant_id: selectedMerchant,
-                gross_total: grossTotal,
-                market_fee: fees.marketFee,
-                supervision_fee: fees.supervision,
-                donation: fees.donation,
-                commission: fees.commission,
-                total_charges: totalCharges,
-                net_amount: netAmount
-            }])
-            .select()
-            .single();
-
-        if (billError) {
-            alert('Error saving bill: ' + billError.message);
-            setLoading(false);
+    const handleDownload = () => {
+        if (securityKey !== '1234') {
+            setKeyError('Invalid security key.');
             return;
         }
-
-        // Save aggregated items
-        const itemsToSave = items.map(item => ({
-            bill_id: bill.id,
-            product_id: item.productId,
-            quantity: item.weight, // Using weight as quantity
-            rate: item.rate,
-            amount: item.amount
-        }));
-
-        const { error: itemsError } = await supabase.from('merchant_bill_items').insert(itemsToSave);
-
-        if (itemsError) {
-            alert('Error saving items: ' + itemsError.message);
-        } else {
-            alert('Merchant Bill Generated & Saved!');
-            setSelectedMerchant('');
-            setItems([]);
-            generateBillNo();
-        }
-        setLoading(false);
+        setShowKeyModal(false);
+        setSecurityKey('');
+        setKeyError('');
+        setTimeout(() => {
+            window.print();
+        }, 300);
     };
 
     return (
-        <div className="bg-slate-50 min-h-screen p-4 md:p-8 text-slate-900">
-            <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-                <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center">
+        <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full">
+            <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print:shadow-none print:border-none">
+                <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center print:hidden">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800">Merchant Daily Bill</h1>
                         <p className="text-slate-500 text-sm">Auto-generated from Daily Pattis</p>
                     </div>
-                    <div className="text-right">
-                        <div className="text-sm text-slate-500">Bill No</div>
-                        <div className="font-mono font-bold text-lg">{billNo}</div>
+                </div>
+
+                {/* Print Header (Visible only when printing) */}
+                <div className="hidden print:block text-center border-b border-slate-300 pb-6 mb-6">
+                    <h1 className="text-3xl font-black text-slate-900 devanagari">श्री जय सप्तश्रृंगी व्हेजिटेबल कं.</h1>
+                    <p className="text-slate-600 mt-1">व्यापारी आणि कमिशन एजंट</p>
+                    <div className="flex justify-between items-end mt-6 text-left">
+                        <div>
+                            <p className="text-sm text-slate-500 uppercase font-bold">Bill To:</p>
+                            <p className="font-bold text-lg text-slate-900">{merchants.find(m => m.id === selectedMerchant)?.name || 'Unknown'}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-sm font-bold text-slate-800">Date: {new Date(date).toLocaleDateString('en-GB')}</p>
+                        </div>
                     </div>
                 </div>
 
                 <div className="p-8 space-y-8">
                     {/* Controls */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-6 rounded-xl border border-blue-100">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-6 rounded-xl border border-blue-100 print:hidden">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Date <span className="text-red-500">*</span></label>
                             <input
                                 type="date"
                                 value={date}
                                 onChange={e => setDate(e.target.value)}
-                                className="w-full border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Select Merchant</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Select Merchant <span className="text-red-500">*</span></label>
                             <select
                                 value={selectedMerchant}
                                 onChange={e => setSelectedMerchant(e.target.value)}
-                                className="w-full border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                             >
                                 <option value="">-- Choose Merchant --</option>
                                 {merchants.map(m => (
-                                    <option key={m.id} value={m.id}>{m.name} ({m.shop_name})</option>
+                                    <option key={m.id} value={m.id}>{m.name}</option>
                                 ))}
                             </select>
                         </div>
                     </div>
 
                     {/* Status Bar */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between print:hidden">
                         <div className="text-slate-600">
                             Found <strong className="text-primary">{pattiCount}</strong> Hishob Pattis for this date.
                         </div>
@@ -298,33 +287,82 @@ export default function MerchantBill() {
                                     <span>Gross Total</span>
                                     <span>₹ {grossTotal.toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-red-600">
-                                    <span>Less: Charges</span>
-                                    <span>- ₹ {totalCharges.toFixed(2)}</span>
+                                <div className="flex justify-between text-blue-600">
+                                    <span>Add: Charges</span>
+                                    <span>+ ₹ {totalCharges.toFixed(2)}</span>
                                 </div>
-                                <div className="border-t border-slate-200 pt-3 flex justify-between text-xl font-bold text-slate-900">
-                                    <span>Net Payable</span>
-                                    <span>₹ {netAmount.toFixed(2)}</span>
+                                <div className="border-t border-slate-200 pt-3 flex flex-col gap-2">
+                                    <div className="flex justify-between text-xl font-bold text-slate-900">
+                                        <span>Net Payable</span>
+                                        <span>₹ {netAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="text-right text-xs text-slate-600 font-medium uppercase tracking-wider">
+                                        ( {numberToWords(netAmount)} Only )
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-4">
-                    <button className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-200 rounded-lg">
-                        Cancel
-                    </button>
+                <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-4 print:hidden">
                     <button
-                        onClick={handleSave}
+                        onClick={() => setShowKeyModal(true)}
                         disabled={loading || items.length === 0}
-                        className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-8 py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg shadow-slate-900/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <span className="material-icons-round">receipt_long</span>
-                        {loading ? 'Saving...' : 'Generate Bill'}
+                        <Printer size={20} />
+                        Download / Print Bill
                     </button>
                 </div>
             </div>
+
+            {/* Security Key Modal */}
+            {showKeyModal && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] print:hidden">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <LockKeyhole size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">Enter Security Key</h3>
+                        <p className="text-slate-500 text-sm mb-6">Authentication is required to download or print this autogenerated bill.</p>
+
+                        <input
+                            type="password"
+                            autoFocus
+                            placeholder="Enter 4-digit key"
+                            maxLength={4}
+                            className="w-full text-center tracking-wide text-xl py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary mb-2 outline-none"
+                            value={securityKey}
+                            onChange={(e) => {
+                                setSecurityKey(e.target.value);
+                                setKeyError('');
+                            }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleDownload(); }}
+                        />
+                        {keyError && <p className="text-red-500 text-sm mb-4">{keyError}</p>}
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setShowKeyModal(false);
+                                    setSecurityKey('');
+                                    setKeyError('');
+                                }}
+                                className="flex-1 py-3 text-slate-700 bg-slate-100 hover:bg-slate-200 font-semibold rounded-xl transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDownload}
+                                className="flex-1 py-3 text-white bg-primary hover:bg-primary-light font-semibold rounded-xl shadow-lg shadow-primary/20 transition-all"
+                            >
+                                Unlock
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

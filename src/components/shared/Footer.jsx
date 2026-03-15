@@ -1,6 +1,6 @@
 export default function Footer({
     companyName = "जय सप्तश्रृंगी व्हिजीटेबल कंपनी",
-    motto = "इमानदारी दुनियामे सबसे बडी दौलत है।",
+    motto = "दुनियामे सबसे बडी दौलत है इमानदारी।",
     year = new Date().getFullYear()
 }) {
     return (

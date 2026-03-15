@@ -13,7 +13,7 @@ const recentTraders = [
 
 export default function MarketOperations() {
     return (
-        <div className="bg-slate-50 text-slate-900 min-h-screen">
+        <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full">
             <Header title="जय सप्तश्रृंगी व्हिजीटेबल कंपनी" subtitle="Vegetable Merchant & Commission Agent" />
 
             <main className="max-w-7xl mx-auto px-4 py-8">

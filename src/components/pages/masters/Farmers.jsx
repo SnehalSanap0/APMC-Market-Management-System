@@ -114,31 +114,39 @@ export default function Farmers() {
                         <h3 className="text-lg font-bold mb-4">{editingId ? 'Edit Farmer' : 'Add New Farmer'}</h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Farmer Name <span className="text-red-500">*</span></label>
                                 <input
                                     required
                                     type="text"
+                                    placeholder="e.g. Tukaram Patil"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Mobile</label>
-                                <input
-                                    type="text"
-                                    value={formData.mobile}
-                                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                                    className="w-full border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
-                                />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number</label>
+                                <div className="flex">
+                                    <span className="inline-flex items-center px-3 text-sm text-slate-500 bg-slate-50 border border-r-0 border-slate-300 rounded-l-lg">+91</span>
+                                    <input
+                                        type="tel"
+                                        pattern="[0-9]{10}"
+                                        placeholder="9876543210"
+                                        title="Must be a 10-digit number"
+                                        value={formData.mobile}
+                                        onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-r-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    />
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Village</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Village / Town</label>
                                 <input
                                     type="text"
+                                    placeholder="e.g. Nashik"
                                     value={formData.village}
                                     onChange={(e) => setFormData({ ...formData, village: e.target.value })}
-                                    className="w-full border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                 />
                             </div>
                             <div className="flex justify-end gap-3 mt-6">

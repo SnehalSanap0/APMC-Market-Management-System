@@ -1,3 +1,5 @@
+import logo from '../../assets/logo.png';
+
 export default function Header({
     title = "जय सप्तश्रृंगी व्हिजीटेबल कंपनी",
     subtitle = "Vegetable Merchant & Commission Agent",
@@ -7,9 +9,7 @@ export default function Header({
         <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                        <span className="material-icons-round">agriculture</span>
-                    </div>
+                    <img src={logo} alt="Logo" className="w-12 h-12 object-contain drop-shadow-sm rounded-xl" />
                     <div>
                         <h1 className="text-xl font-bold devanagari text-primary leading-tight">{title}</h1>
                         <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">

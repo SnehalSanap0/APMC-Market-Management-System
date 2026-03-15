@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { Header, Footer } from '../../shared';
 import Merchants from './Merchants';
+import Farmers from './Farmers';
 import Products from './Products';
 
 export default function MasterLayout() {
-    const [activeTab, setActiveTab] = useState('merchants');
+    const [activeTab, setActiveTab] = useState('Merchants');
 
     return (
-        <div className="bg-slate-50 min-h-screen text-slate-900">
-            <Header title="Master Data Management" subtitle="Manage Merchants & Products" />
+        <div className="w-full text-slate-900 h-full p-4 md:p-6 lg:p-8">
 
             <main className="max-w-7xl mx-auto px-4 py-8">
                 {/* Tabs */}
                 <div className="mb-8 border-b border-slate-200">
                     <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                        {['merchants', 'products'].map((tab) => (
+                        {['Merchants', 'Farmers', 'Products'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -33,12 +33,11 @@ export default function MasterLayout() {
 
                 {/* Content */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 min-h-[500px] p-6">
-                    {activeTab === 'merchants' && <Merchants />}
-                    {activeTab === 'products' && <Products />}
+                    {activeTab === 'Merchants' && <Merchants />}
+                    {activeTab === 'Farmers' && <Farmers />}
+                    {activeTab === 'Products' && <Products />}
                 </div>
             </main>
-
-            <Footer />
         </div>
     );
 }

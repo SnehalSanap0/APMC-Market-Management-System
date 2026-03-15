@@ -16,7 +16,7 @@ export default function DhadaBook() {
             .from('dhada_entries')
             .select(`
                 *,
-                merchants (name, shop_name),
+                merchants (name),
                 merchant_bills (bill_no)
             `)
             .eq('date', date)
@@ -40,7 +40,7 @@ export default function DhadaBook() {
     }), { market: 0, supervision: 0, donation: 0, commission: 0, total: 0 });
 
     return (
-        <div className="bg-slate-50 min-h-screen p-4 md:p-8 text-slate-900">
+        <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full">
             <div className="max-w-7xl mx-auto space-y-6">
 
                 {/* Header */}
