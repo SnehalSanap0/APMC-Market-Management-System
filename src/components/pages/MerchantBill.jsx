@@ -7,7 +7,7 @@ function numberToWords(num) {
     if (num === 0) return 'Zero';
     const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
     const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-    
+
     const format = (n) => {
         if (n < 20) return a[n];
         if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
@@ -16,7 +16,7 @@ function numberToWords(num) {
         if (n < 10000000) return format(Math.floor(n / 100000)) + 'Lakh ' + (n % 100000 !== 0 ? format(n % 100000) : '');
         return format(Math.floor(n / 10000000)) + 'Crore ' + (n % 10000000 !== 0 ? format(n % 10000000) : '');
     };
-    
+
     // Handle decimals for paise (optional, rounding for now as it's common)
     const intPart = Math.floor(Math.round(num));
     return format(intPart).trim() + ' Rupees';
@@ -113,7 +113,7 @@ export default function MerchantBill() {
             rate: item.rate,
             amount: item.amount
         }));
-        
+
         setItems(formattedItems);
         setLoading(false);
     };

@@ -34,12 +34,12 @@ const pages = [
   { id: 'dashboard', name: 'डॅशबोर्ड (Dashboard)', icon: LayoutDashboard, component: Dashboard },
   { id: 'masters', name: 'मास्टर्स (Masters)', icon: Database, component: MasterLayout },
   { id: 'hishob-patti', name: 'हिशोब पट्टी (Hishob Patti)', icon: ScrollText, component: HishobPatti },
+  { id: 'patti-nond', name: 'पट्टी नोंद (Patti Nond)', icon: FileText, component: PattiNond },
   { id: 'merchant-bill', name: 'व्यापारी बिल (Merchant Bill)', icon: FileText, component: MerchantBill },
-  { id: 'market-ops', name: 'बाजार कामकाज (Market Operations)', icon: Store, component: MarketOperations },
+  { id: 'dhada-book', name: 'धडा बुक (Dhada Book)', icon: BookMarked, component: DhadaBook },
   { id: 'jama-pavti', name: 'जमा पावती (Jama Pavti)', icon: FileCheck, component: JamaPavti },
   { id: 'khatavni', name: 'व्यापारी खतावणी (Vyapari Khatavni)', icon: BookOpen, component: VyapariKhatavni },
-  { id: 'dhada-book', name: 'धडा बुक (Dhada Book)', icon: BookMarked, component: DhadaBook },
-  { id: 'patti-nond', name: 'पट्टी नोंद (Patti Nond)', icon: FileText, component: PattiNond },
+  { id: 'market-ops', name: 'बाजार कामकाज (Market Operations)', icon: Store, component: MarketOperations },
 ];
 
 function App() {

@@ -5,7 +5,7 @@ import { LockKeyhole, Printer } from 'lucide-react';
 export default function HishobPatti() {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('CREATE'); // CREATE, VIEW
-    
+
     // Dropdown Ref
     const farmerDropdownRef = useRef(null);
 
@@ -39,7 +39,7 @@ export default function HishobPatti() {
 
     // View State
     const [viewDate, setViewDate] = useState(new Date().toISOString().split('T')[0]);
-    const [viewMerchant, setViewMerchant] = useState('');
+    const [viewFarmer, setViewFarmer] = useState('');
     const [pattis, setPattis] = useState([]);
 
     const [showKeyModal, setShowKeyModal] = useState(false);
@@ -52,10 +52,10 @@ export default function HishobPatti() {
     }, []);
 
     useEffect(() => {
-        if (activeTab === 'VIEW' && viewDate && viewMerchant) {
+        if (activeTab === 'VIEW' && viewDate && viewFarmer) {
             fetchPattis();
         }
-    }, [activeTab, viewDate, viewMerchant]);
+    }, [activeTab, viewDate, viewFarmer]);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -86,10 +86,8 @@ export default function HishobPatti() {
 
         if (!error) {
             let filtered = data || [];
-            if (viewMerchant) {
-                filtered = filtered.filter(entry => 
-                    entry.hishob_items?.some(item => item.merchant_id === viewMerchant) || entry.merchant_id === viewMerchant
-                );
+            if (viewFarmer) {
+                filtered = filtered.filter(entry => entry.farmer_id === viewFarmer);
             }
             setPattis(filtered);
         } else {
@@ -221,6 +219,9 @@ export default function HishobPatti() {
         if (itemsError) {
             alert('Error saving items: ' + itemsError.message);
         } else {
+            // AUTO-SAVE: Update/Create corresponding Merchant Bills & Dhada Entries
+            await autoUpdateMerchantBills(date, itemsToSave.map(i => i.merchant_id));
+
             alert('Hishob Patti Saved Successfully!');
             // Reset form
             setSelectedFarmer(null);
@@ -229,6 +230,91 @@ export default function HishobPatti() {
             generateReceiptNo();
         }
         setLoading(false);
+    };
+
+    const autoUpdateMerchantBills = async (billDate, merchantIds) => {
+        const uniqueMerchants = [...new Set(merchantIds.filter(Boolean))];
+        for (const merchantId of uniqueMerchants) {
+            // Fetch all items for this merchant on this date
+            const { data: allItems } = await supabase
+                .from('hishob_items')
+                .select(`
+                    amount,
+                    hishob_entries!inner(date)
+                `)
+                .eq('merchant_id', merchantId)
+                .eq('hishob_entries.date', billDate);
+
+            if (!allItems || allItems.length === 0) continue;
+
+            const mGrossTotal = allItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+            const mFees = {
+                marketFee: mGrossTotal * 0.06,
+                supervision: mGrossTotal * 0.01,
+                donation: mGrossTotal * 0.0005,
+                commission: 1 // flat ₹1
+            };
+            const mTotalCharges = mFees.marketFee + mFees.supervision + mFees.donation + mFees.commission;
+            const mNetAmount = mGrossTotal + mTotalCharges;
+
+            // Check if bill exists
+            const { data: existingBill } = await supabase
+                .from('merchant_bills')
+                .select('id')
+                .eq('date', billDate)
+                .eq('merchant_id', merchantId)
+                .maybeSingle();
+
+            if (existingBill) {
+                // Update existing
+                await supabase.from('merchant_bills').update({
+                    gross_total: mGrossTotal,
+                    market_fee: mFees.marketFee,
+                    supervision_fee: mFees.supervision,
+                    donation: mFees.donation,
+                    commission: mFees.commission,
+                    total_charges: mTotalCharges,
+                    net_amount: mNetAmount
+                }).eq('id', existingBill.id);
+
+                await supabase.from('dhada_entries').update({
+                    market_fee: mFees.marketFee,
+                    supervision_fee: mFees.supervision,
+                    donation: mFees.donation,
+                    commission: mFees.commission,
+                    total_income: mTotalCharges
+                }).eq('bill_id', existingBill.id);
+            } else {
+                // Insert new
+                const newBillNo = `MB-${billDate.replace(/-/g, '')}-${merchantId.substring(0, 4).toUpperCase()}`;
+                const { data: newBill } = await supabase.from('merchant_bills').insert([{
+                    date: billDate,
+                    merchant_id: merchantId,
+                    bill_no: newBillNo,
+                    gross_total: mGrossTotal,
+                    market_fee: mFees.marketFee,
+                    supervision_fee: mFees.supervision,
+                    donation: mFees.donation,
+                    commission: mFees.commission,
+                    total_charges: mTotalCharges,
+                    net_amount: mNetAmount
+                }]).select().single();
+
+                if (newBill) {
+                    await supabase.from('dhada_entries').insert([{
+                        date: billDate,
+                        merchant_id: merchantId,
+                        bill_id: newBill.id,
+                        market_fee: mFees.marketFee,
+                        supervision_fee: mFees.supervision,
+                        donation: mFees.donation,
+                        commission: mFees.commission,
+                        total_income: mTotalCharges
+                    }]);
+                }
+            }
+        }
     };
 
     const handleDownload = () => {
@@ -513,15 +599,15 @@ export default function HishobPatti() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Merchant (Agent)</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">शेतकरी (Farmer)</label>
                                 <select
-                                    value={viewMerchant}
-                                    onChange={e => setViewMerchant(e.target.value)}
+                                    value={viewFarmer}
+                                    onChange={e => setViewFarmer(e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                                 >
-                                    <option value="">Select Merchant</option>
-                                    {merchants.map(m => (
-                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                    <option value="">Select Farmer</option>
+                                    {farmers.map(f => (
+                                        <option key={f.id} value={f.id}>{f.name} {f.village ? `(${f.village})` : ''}</option>
                                     ))}
                                 </select>
                             </div>
@@ -529,9 +615,9 @@ export default function HishobPatti() {
 
                         {loading && <div className="text-center py-4 print:hidden">Loading Pattis...</div>}
 
-                        {!loading && pattis.length === 0 && viewMerchant && (
+                        {!loading && pattis.length === 0 && viewFarmer && (
                             <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-slate-200 print:hidden">
-                                No Hishob Pattis generated for this Merchant on {new Date(viewDate).toLocaleDateString('en-GB')}
+                                No Hishob Pattis generated for this Farmer on {new Date(viewDate).toLocaleDateString('en-GB')}
                             </div>
                         )}
 
