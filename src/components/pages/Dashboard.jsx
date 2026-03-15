@@ -117,7 +117,7 @@ export default function Dashboard({ onNavigate }) {
                 {/* Motto */}
                 <div className="mt-12 text-center">
                     <p className="text-primary italic text-lg devanagari">"दुनियांमे सबसे बडी दौलत है इमानदारी!"</p>
-                    <p className="text-slate-400 text-xs mt-4">© २०२४ सप्तश्रृंगी व्हिजीटेबल कंपनी | सर्व हक्क राखीव</p>
+                    <p className="text-slate-400 text-xs mt-4">©2026 Shri Jay Saptashrungi Vegetable Co. | All Rights Reserved</p>
                 </div>
             </main>
 

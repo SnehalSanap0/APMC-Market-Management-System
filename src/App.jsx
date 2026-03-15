@@ -9,6 +9,7 @@ import {
   VyapariKhatavni,
   MerchantBill,
   DhadaBook,
+  PattiNond,
   Auth
 } from './components/pages';
 import MasterLayout from './components/pages/masters/MasterLayout';
@@ -38,6 +39,7 @@ const pages = [
   { id: 'jama-pavti', name: 'Jama Pavti', icon: FileCheck, component: JamaPavti },
   { id: 'khatavni', name: 'Vyapari Khatavni', icon: BookOpen, component: VyapariKhatavni },
   { id: 'dhada-book', name: 'Dhada Book', icon: BookMarked, component: DhadaBook },
+  { id: 'patti-nond', name: 'Patti Nond', icon: FileText, component: PattiNond },
 ];
 
 function App() {
@@ -173,13 +175,6 @@ function App() {
             <h1 className="text-lg font-semibold text-slate-800 tracking-tight hidden sm:block">
               {currentPageParams?.name}
             </h1>
-          </div>
-
-          <div className="flex items-center gap-4 md:gap-6">
-            <button className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-white"></span>
-            </button>
           </div>
         </header>
 

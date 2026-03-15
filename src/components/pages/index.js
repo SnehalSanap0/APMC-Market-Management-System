@@ -5,4 +5,5 @@ export { default as MarketOperations } from './MarketOperations';
 export { default as JamaPavti } from './JamaPavti';
 export { default as VyapariKhatavni } from './VyapariKhatavni';
 export { default as DhadaBook } from './DhadaBook';
+export { default as PattiNond } from './PattiNond';
 export { default as Auth } from './Auth';

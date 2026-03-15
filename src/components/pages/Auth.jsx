@@ -46,7 +46,7 @@ export default function Auth() {
       <div className="mb-10 flex flex-row items-center justify-center gap-4 p-4 max-w-lg w-full">
         <img src={logo} alt="Company Logo" className="w-24 h-24 sm:w-32 sm:h-32 object-contain drop-shadow-md shrink-0 rounded-2xl" />
         <div className="flex flex-col text-left">
-          <h1 className="text-3xl font-black leading-tight text-slate-900 tracking-tight" style={{ fontFamily: 'Lato, sans-serif' }}>
+          <h1 className="text-3xl font-black leading-tight text-slate-900 tracking-tight">
             Shri Jay Saptashrungi Vegetable Co.
           </h1>
         </div>

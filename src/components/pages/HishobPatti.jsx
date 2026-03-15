@@ -17,7 +17,6 @@ export default function HishobPatti() {
     // Form State
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [receiptNo, setReceiptNo] = useState(''); // Auto-generated or manual
-    const [selectedMerchant, setSelectedMerchant] = useState('');
 
     // Farmer Search/Add State
     const [farmerSearch, setFarmerSearch] = useState('');
@@ -28,7 +27,7 @@ export default function HishobPatti() {
 
     // Items State
     const [items, setItems] = useState([
-        { productId: '', weight: '', rate: '', amount: 0 }
+        { productId: '', merchantId: '', weight: '', rate: '', amount: 0 }
     ]);
 
     // Expenses
@@ -77,16 +76,25 @@ export default function HishobPatti() {
                 *,
                 farmers ( name, village ),
                 hishob_items (
+                    merchant_id,
                     weight, rate, amount,
                     products ( name )
                 )
             `)
             .eq('date', viewDate)
-            .eq('merchant_id', viewMerchant)
             .order('created_at', { ascending: false });
 
-        if (!error) setPattis(data || []);
-        else console.error(error);
+        if (!error) {
+            let filtered = data || [];
+            if (viewMerchant) {
+                filtered = filtered.filter(entry => 
+                    entry.hishob_items?.some(item => item.merchant_id === viewMerchant) || entry.merchant_id === viewMerchant
+                );
+            }
+            setPattis(filtered);
+        } else {
+            console.error(error);
+        }
         setLoading(false);
     };
 
@@ -149,14 +157,14 @@ export default function HishobPatti() {
         if (field === 'rate' || field === 'weight') {
             const weight = parseFloat(newItems[index].weight) || 0;
             const rate = parseFloat(newItems[index].rate) || 0;
-            newItems[index].amount = weight * rate;
+            newItems[index].amount = (weight * rate) / 100;
         }
 
         setItems(newItems);
     };
 
     const addItem = () => {
-        setItems([...items, { productId: '', weight: '', rate: '', amount: 0 }]);
+        setItems([...items, { productId: '', merchantId: '', weight: '', rate: '', amount: 0 }]);
     };
 
     const removeItem = (index) => {
@@ -172,7 +180,7 @@ export default function HishobPatti() {
 
     // --- Save ---
     const handleSave = async () => {
-        if (!selectedFarmer || !selectedMerchant) return alert('Please select Farmer and Merchant');
+        if (!selectedFarmer || items.some(i => !i.productId || !i.merchantId)) return alert('Please select Farmer, Product, and Merchant for all items');
 
         setLoading(true);
 
@@ -183,7 +191,6 @@ export default function HishobPatti() {
                 receipt_no: receiptNo,
                 date,
                 farmer_id: selectedFarmer.id,
-                merchant_id: selectedMerchant,
                 gross_total: grossTotal,
                 total_expenses: totalExpenses,
                 net_amount: netAmount
@@ -201,6 +208,7 @@ export default function HishobPatti() {
         const itemsToSave = items.map(item => ({
             entry_id: entry.id,
             product_id: item.productId,
+            merchant_id: item.merchantId,
             weight: item.weight,
             rate: item.rate,
             amount: item.amount
@@ -217,7 +225,7 @@ export default function HishobPatti() {
             // Reset form
             setSelectedFarmer(null);
             setFarmerSearch('');
-            setItems([{ productId: '', weight: '', rate: '', amount: 0 }]);
+            setItems([{ productId: '', merchantId: '', weight: '', rate: '', amount: 0 }]);
             generateReceiptNo();
         }
         setLoading(false);
@@ -270,7 +278,7 @@ export default function HishobPatti() {
 
                     <div className="p-8 space-y-8">
                         {/* Top Section: Date, Merchant, Farmer */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Date <span className="text-red-500">*</span></label>
                                 <input
@@ -324,28 +332,15 @@ export default function HishobPatti() {
                                     </div>
                                 )}
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Merchant (Agent) <span className="text-red-500">*</span></label>
-                                <select
-                                    value={selectedMerchant}
-                                    onChange={e => setSelectedMerchant(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
-                                >
-                                    <option value="">Select Merchant</option>
-                                    {merchants.map(m => (
-                                        <option key={m.id} value={m.id}>{m.name} ({m.shop_name})</option>
-                                    ))}
-                                </select>
-                            </div>
                         </div>
 
                         {/* Items Table */}
-                        <div className="border border-slate-200 rounded-lg overflow-hidden">
-                            <table className="w-full text-left">
+                        <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                            <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-slate-50 text-slate-600 text-sm uppercase">
                                     <tr>
-                                        <th className="p-3 border-b">Product</th>
+                                        <th className="p-3 border-b min-w-[150px]">Product</th>
+                                        <th className="p-3 border-b min-w-[150px]">Merchant</th>
                                         <th className="p-3 border-b w-32">Weight</th>
                                         <th className="p-3 border-b w-32">Rate</th>
                                         <th className="p-3 border-b w-40 text-right">Amount</th>
@@ -364,6 +359,18 @@ export default function HishobPatti() {
                                                     <option value="">Select Product</option>
                                                     {products.map(p => (
                                                         <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td className="p-2">
+                                                <select
+                                                    value={item.merchantId}
+                                                    onChange={e => updateItem(idx, 'merchantId', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
+                                                >
+                                                    <option value="">Select Merchant</option>
+                                                    {merchants.map(m => (
+                                                        <option key={m.id} value={m.id}>{m.name}</option>
                                                     ))}
                                                 </select>
                                             </td>
@@ -402,7 +409,7 @@ export default function HishobPatti() {
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colSpan="5" className="p-2">
+                                        <td colSpan="6" className="p-2">
                                             <button
                                                 onClick={addItem}
                                                 className="text-primary hover:text-primary/80 text-sm font-semibold flex items-center gap-1 px-2"
@@ -551,6 +558,7 @@ export default function HishobPatti() {
                                         <thead className="bg-slate-50 border-b-2 border-slate-800 print:bg-white text-sm uppercase">
                                             <tr>
                                                 <th className="p-3 border-r-2 border-slate-800">Product</th>
+                                                <th className="p-3 border-r-2 border-slate-800">Merchant</th>
                                                 <th className="p-3 border-r-2 border-slate-800 text-center">Weight</th>
                                                 <th className="p-3 border-r-2 border-slate-800 text-center">Rate</th>
                                                 <th className="p-3 text-right">Amount</th>
@@ -560,6 +568,7 @@ export default function HishobPatti() {
                                             {patti.hishob_items?.map((item, i) => (
                                                 <tr key={i}>
                                                     <td className="p-3 border-r-2 border-slate-800 font-medium">{item.products?.name}</td>
+                                                    <td className="p-3 border-r-2 border-slate-800 text-xs text-slate-600">{(merchants.find(m => m.id === (item.merchant_id || patti.merchant_id))?.name) || '-'}</td>
                                                     <td className="p-3 border-r-2 border-slate-800 text-center">{item.weight}</td>
                                                     <td className="p-3 border-r-2 border-slate-800 text-center">{item.rate}</td>
                                                     <td className="p-3 text-right font-mono font-bold">{item.amount.toFixed(2)}</td>
