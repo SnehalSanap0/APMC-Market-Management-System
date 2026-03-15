@@ -69,55 +69,52 @@ export default function MerchantBill() {
 
     const fetchDailyTransactions = async () => {
         setLoading(true);
-        // 1. Get Hishob Entries for this Merchant + Date
-        const { data: entries, error } = await supabase
-            .from('hishob_entries')
-            .select('id, receipt_no')
-            .eq('merchant_id', selectedMerchant)
-            .eq('date', date);
 
-        if (error) {
-            console.error(error);
+        // In the platform, an entry belongs to a Farmer, but individual ITEMS belong to Merchants.
+        // So we query hishob_items directly and inner join with hishob_entries to filter by date.
+        const { data: billItems, error: itemsError } = await supabase
+            .from('hishob_items')
+            .select(`
+                id,
+                weight,
+                rate,
+                amount,
+                product_id,
+                entry_id,
+                products (name, unit),
+                hishob_entries!inner (date, receipt_no)
+            `)
+            .eq('merchant_id', selectedMerchant)
+            .eq('hishob_entries.date', date);
+
+        if (itemsError) {
+            console.error(itemsError);
             setLoading(false);
             return;
         }
 
-        if (!entries || entries.length === 0) {
+        if (!billItems || billItems.length === 0) {
             setItems([]);
             setPattiCount(0);
             setLoading(false);
             return;
         }
 
-        setPattiCount(entries.length);
-        const entryIds = entries.map(e => e.id);
+        // Count unique entries (Pattis) this merchant was part of today
+        const uniqueEntries = new Set(billItems.map(item => item.entry_id));
+        setPattiCount(uniqueEntries.size);
 
-        // 2. Get Items for these entries
-        const { data: billItems, error: itemsError } = await supabase
-            .from('hishob_items')
-            .select(`
-                product_id,
-                weight,
-                rate,
-                amount,
-                products (name, unit)
-            `)
-            .in('entry_id', entryIds);
-
-        if (itemsError) {
-            console.error(itemsError);
-        } else {
-            // Map to local format
-            const formattedItems = billItems.map(item => ({
-                productId: item.product_id,
-                productName: item.products?.name,
-                unit: item.products?.unit,
-                weight: item.weight,
-                rate: item.rate,
-                amount: item.amount
-            }));
-            setItems(formattedItems);
-        }
+        // Map to local format
+        const formattedItems = billItems.map(item => ({
+            productId: item.product_id,
+            productName: item.products?.name,
+            unit: item.products?.unit,
+            weight: item.weight,
+            rate: item.rate,
+            amount: item.amount
+        }));
+        
+        setItems(formattedItems);
         setLoading(false);
     };
 
@@ -128,7 +125,7 @@ export default function MerchantBill() {
         marketFee: grossTotal * RATES.MARKET_FEE,
         supervision: grossTotal * RATES.SUPERVISION,
         donation: grossTotal * RATES.DONATION,
-        commission: grossTotal * RATES.COMMISSION
+        commission: items.length > 0 ? 1 : 0 // Flat 1 Rs charge instead of 1%
     };
 
     const totalCharges = Object.values(fees).reduce((sum, val) => sum + val, 0);
@@ -152,8 +149,8 @@ export default function MerchantBill() {
             <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print:shadow-none print:border-none">
                 <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center print:hidden">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Merchant Daily Bill</h1>
-                        <p className="text-slate-500 text-sm">Auto-generated from Daily Pattis</p>
+                        <h1 className="text-2xl font-bold text-slate-800">व्यापारी बिल (Merchant Daily Bill)</h1>
+                        <p className="text-slate-500 text-sm">दैनंदिन पट्ट्यामधून ऑटो-व्युत्पन्न (Auto-generated from Daily Pattis)</p>
                     </div>
                 </div>
 
@@ -163,11 +160,11 @@ export default function MerchantBill() {
                     <p className="text-slate-600 mt-1">व्यापारी आणि कमिशन एजंट</p>
                     <div className="flex justify-between items-end mt-6 text-left">
                         <div>
-                            <p className="text-sm text-slate-500 uppercase font-bold">Bill To:</p>
+                            <p className="text-sm text-slate-500 uppercase font-bold">व्यापारी (Bill To):</p>
                             <p className="font-bold text-lg text-slate-900">{merchants.find(m => m.id === selectedMerchant)?.name || 'Unknown'}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-sm font-bold text-slate-800">Date: {new Date(date).toLocaleDateString('en-GB')}</p>
+                            <p className="text-sm font-bold text-slate-800">तारीख (Date): {new Date(date).toLocaleDateString('en-GB')}</p>
                         </div>
                     </div>
                 </div>
@@ -176,7 +173,7 @@ export default function MerchantBill() {
                     {/* Controls */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-6 rounded-xl border border-blue-100 print:hidden">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Date <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">तारीख (Date) <span className="text-red-500">*</span></label>
                             <input
                                 type="date"
                                 value={date}
@@ -185,13 +182,13 @@ export default function MerchantBill() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Select Merchant <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">व्यापारी निवडा (Select Merchant) <span className="text-red-500">*</span></label>
                             <select
                                 value={selectedMerchant}
                                 onChange={e => setSelectedMerchant(e.target.value)}
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                             >
-                                <option value="">-- Choose Merchant --</option>
+                                <option value="">-- व्यापारी (Choose Merchant) --</option>
                                 {merchants.map(m => (
                                     <option key={m.id} value={m.id}>{m.name}</option>
                                 ))}
@@ -212,17 +209,17 @@ export default function MerchantBill() {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-slate-600 text-sm uppercase">
                                 <tr>
-                                    <th className="p-3 border-b">Product</th>
-                                    <th className="p-3 border-b text-center">Weight/Qty</th>
-                                    <th className="p-3 border-b text-center">Rate</th>
-                                    <th className="p-3 border-b text-right">Amount</th>
+                                    <th className="p-3 border-b">माल (Product)</th>
+                                    <th className="p-3 border-b text-center">वजन (Weight/Qty)</th>
+                                    <th className="p-3 border-b text-center">दर (Rate)</th>
+                                    <th className="p-3 border-b text-right">रक्कम (Amount)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {items.length === 0 ? (
                                     <tr>
                                         <td colSpan="4" className="p-8 text-center text-slate-400">
-                                            No transactions found for the selected date and merchant.
+                                            या तारखेसाठी आणि व्यापाऱ्यासाठी कोणतेही व्यवहार सापडले नाहीत. (No transactions found.)
                                         </td>
                                     </tr>
                                 ) : (
@@ -243,7 +240,7 @@ export default function MerchantBill() {
                             {items.length > 0 && (
                                 <tfoot className="bg-slate-50 font-bold">
                                     <tr>
-                                        <td colSpan="3" className="p-3 text-right text-slate-600">Total Business</td>
+                                        <td colSpan="3" className="p-3 text-right text-slate-600">एकूण खरेदी (Total Business)</td>
                                         <td className="p-3 text-right text-slate-900 border-t border-slate-300">
                                             ₹ {grossTotal.toFixed(2)}
                                         </td>
@@ -257,7 +254,7 @@ export default function MerchantBill() {
                     {items.length > 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-200 pt-8">
                             <div>
-                                <h3 className="font-semibold text-slate-800 mb-4">Applied Charges</h3>
+                                <h3 className="font-semibold text-slate-800 mb-4">लागू आकार (Applied Charges)</h3>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-slate-600">Market Fee (6%)</span>
@@ -272,7 +269,7 @@ export default function MerchantBill() {
                                         <span className="font-mono">₹ {fees.donation.toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-slate-600">Commission (1%)</span>
+                                        <span className="text-slate-600">कमिशन (Commission - ₹1)</span>
                                         <span className="font-mono">₹ {fees.commission.toFixed(2)}</span>
                                     </div>
                                     <div className="border-t border-slate-200 pt-2 flex justify-between font-bold text-slate-700">
@@ -284,16 +281,16 @@ export default function MerchantBill() {
 
                             <div className="bg-slate-50 p-6 rounded-xl space-y-3">
                                 <div className="flex justify-between text-slate-600">
-                                    <span>Gross Total</span>
+                                    <span>एकूण रक्कम (Gross Total)</span>
                                     <span>₹ {grossTotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-blue-600">
-                                    <span>Add: Charges</span>
+                                    <span>प्लस: खर्च (Add: Charges)</span>
                                     <span>+ ₹ {totalCharges.toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-slate-200 pt-3 flex flex-col gap-2">
                                     <div className="flex justify-between text-xl font-bold text-slate-900">
-                                        <span>Net Payable</span>
+                                        <span>निव्वळ देय (Net Payable)</span>
                                         <span>₹ {netAmount.toFixed(2)}</span>
                                     </div>
                                     <div className="text-right text-xs text-slate-600 font-medium uppercase tracking-wider">
@@ -312,7 +309,7 @@ export default function MerchantBill() {
                         className="px-8 py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg shadow-slate-900/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Printer size={20} />
-                        Download / Print Bill
+                        बिल डाउनलोड / प्रिंट करा (Download / Print)
                     </button>
                 </div>
             </div>
@@ -351,13 +348,13 @@ export default function MerchantBill() {
                                 }}
                                 className="flex-1 py-3 text-slate-700 bg-slate-100 hover:bg-slate-200 font-semibold rounded-xl transition-all"
                             >
-                                Cancel
+                                रद्द करा (Cancel)
                             </button>
                             <button
                                 onClick={handleDownload}
                                 className="flex-1 py-3 text-white bg-primary hover:bg-primary-light font-semibold rounded-xl shadow-lg shadow-primary/20 transition-all"
                             >
-                                Unlock
+                                अनलॉक (Unlock)
                             </button>
                         </div>
                     </div>

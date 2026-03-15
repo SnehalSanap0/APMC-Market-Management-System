@@ -89,7 +89,6 @@ export default function PattiNond() {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Patti Nond / पट्टी नोंद</h1>
-                        <p className="text-sm text-slate-500 mt-1">Daily Register Ledger</p>
                     </div>
 
                     {/* Filters & Actions */}
@@ -147,7 +146,7 @@ export default function PattiNond() {
                             <table className="w-full text-center border-collapse border-b-2 border-l-2 border-r-2 border-green-800 text-green-900 devanagari print:text-xs">
                                 <thead className="font-bold border-t-2 border-green-800 bg-green-50/10">
                                     <tr>
-                                        <th rowSpan="2" className="border-r-2 border-b-2 border-green-800 p-2 font-medium w-24">बुक नं.<br />पट्टी नं.</th>
+                                        <th rowSpan="2" className="border-r-2 border-b-2 border-green-800 p-2 font-medium w-24">पट्टी नं.</th>
                                         <th colSpan="2" className="border-r-2 border-b border-green-800 p-1 font-medium italic tracking-wide">मालाची किंमत</th>
                                         <th colSpan="2" className="border-r-2 border-b border-green-800 p-1 font-medium tracking-wide">आडत</th>
                                         <th colSpan="2" className="border-r-2 border-b border-green-800 p-1 font-medium tracking-wide">हमाली</th>

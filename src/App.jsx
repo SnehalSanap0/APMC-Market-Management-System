@@ -31,15 +31,15 @@ import {
 import { supabase } from './lib/supabaseClient';
 
 const pages = [
-  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, component: Dashboard },
-  { id: 'masters', name: 'Masters', icon: Database, component: MasterLayout },
-  { id: 'hishob-patti', name: 'Hishob Patti', icon: ScrollText, component: HishobPatti },
-  { id: 'merchant-bill', name: 'Merchant Bill', icon: FileText, component: MerchantBill },
-  { id: 'market-ops', name: 'Market Operations', icon: Store, component: MarketOperations },
-  { id: 'jama-pavti', name: 'Jama Pavti', icon: FileCheck, component: JamaPavti },
-  { id: 'khatavni', name: 'Vyapari Khatavni', icon: BookOpen, component: VyapariKhatavni },
-  { id: 'dhada-book', name: 'Dhada Book', icon: BookMarked, component: DhadaBook },
-  { id: 'patti-nond', name: 'Patti Nond', icon: FileText, component: PattiNond },
+  { id: 'dashboard', name: 'डॅशबोर्ड (Dashboard)', icon: LayoutDashboard, component: Dashboard },
+  { id: 'masters', name: 'मास्टर्स (Masters)', icon: Database, component: MasterLayout },
+  { id: 'hishob-patti', name: 'हिशोब पट्टी (Hishob Patti)', icon: ScrollText, component: HishobPatti },
+  { id: 'merchant-bill', name: 'व्यापारी बिल (Merchant Bill)', icon: FileText, component: MerchantBill },
+  { id: 'market-ops', name: 'बाजार कामकाज (Market Operations)', icon: Store, component: MarketOperations },
+  { id: 'jama-pavti', name: 'जमा पावती (Jama Pavti)', icon: FileCheck, component: JamaPavti },
+  { id: 'khatavni', name: 'व्यापारी खतावणी (Vyapari Khatavni)', icon: BookOpen, component: VyapariKhatavni },
+  { id: 'dhada-book', name: 'धडा बुक (Dhada Book)', icon: BookMarked, component: DhadaBook },
+  { id: 'patti-nond', name: 'पट्टी नोंद (Patti Nond)', icon: FileText, component: PattiNond },
 ];
 
 function App() {
@@ -87,7 +87,7 @@ function App() {
           {isSidebarOpen ? (
             <div className="flex items-center gap-2 overflow-hidden h-full">
               <img src={logo} alt="Logo" className="w-10 h-10 shrink-0 object-contain drop-shadow-sm" />
-              <span className="font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis text-sm leading-tight">Shri Jay Saptashrungi <br /> Vegetable Co.</span>
+              <span className="font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis text-sm leading-tight">श्री जय सप्तश्रृंगी व्हेजिटेबल कं.<br />Shri Jay Saptashrungi Veg.</span>
             </div>
           ) : (
             <div className="w-full flex justify-center items-center h-full">
@@ -140,7 +140,7 @@ function App() {
               <button
                 onClick={() => setIsLogoutModalOpen(true)}
                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                title="Log out"
+                title="बाहेर पडा (Log out)"
               >
                 <LogOut size={18} />
               </button>
@@ -151,7 +151,7 @@ function App() {
               <button
                 onClick={() => setIsLogoutModalOpen(true)}
                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                title="Log out"
+                title="बाहेर पडा (Log out)"
               >
                 <LogOut size={18} />
               </button>
@@ -193,16 +193,16 @@ function App() {
             <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center text-red-500 mb-5 border border-red-100 shadow-sm">
               <LogOut size={28} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">Ready to leave?</h3>
+            <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">बाहेर पडायचे आहे का? (Ready to leave?)</h3>
             <p className="text-slate-500 mb-8 text-sm">
-              Are you sure you want to log out of your account? You will need to sign back in to access the market dashboard.
+              तुम्हाला खरोखर तुमच्या खात्यातून बाहेर पडायचे आहे का? (Are you sure you want to log out of your account?)
             </p>
             <div className="flex w-full gap-3 sm:gap-4">
               <button
                 onClick={() => setIsLogoutModalOpen(false)}
                 className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl font-semibold transition-all"
               >
-                Cancel
+                रद्द करा (Cancel)
               </button>
               <button
                 onClick={() => {
@@ -211,7 +211,7 @@ function App() {
                 }}
                 className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white border border-red-600 rounded-xl font-semibold transition-all shadow-lg shadow-red-600/20"
               >
-                Log out
+                बाहेर पडा (Log out)
               </button>
             </div>
           </div>

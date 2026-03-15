@@ -252,13 +252,13 @@ export default function HishobPatti() {
                     onClick={() => setActiveTab('CREATE')}
                     className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'CREATE' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
                 >
-                    Create New Entry
+                    नवीन नोंद (Create New Entry)
                 </button>
                 <button
                     onClick={() => setActiveTab('VIEW')}
                     className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'VIEW' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
                 >
-                    View & Print Register
+                    रेजिस्टर पहा आणि प्रिंट करा (View & Print)
                 </button>
             </div>
 
@@ -267,11 +267,11 @@ export default function HishobPatti() {
                     {/* Header */}
                     <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center">
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800">Hishob Patti Entry</h1>
-                            <p className="text-slate-500 text-sm">Create new settlement slip</p>
+                            <h1 className="text-2xl font-bold text-slate-800">हिशोब पट्टी नोंद (Hishob Patti Entry)</h1>
+                            <p className="text-slate-500 text-sm">नवीन सेटलमेंट स्लिप तयार करा (Create new settlement slip)</p>
                         </div>
                         <div className="text-right">
-                            <div className="text-sm text-slate-500">Receipt No</div>
+                            <div className="text-sm text-slate-500">पावती क्रमांक (Receipt No)</div>
                             <div className="font-mono font-bold text-lg">{receiptNo}</div>
                         </div>
                     </div>
@@ -280,7 +280,7 @@ export default function HishobPatti() {
                         {/* Top Section: Date, Merchant, Farmer */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Date <span className="text-red-500">*</span></label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">तारीख (Date) <span className="text-red-500">*</span></label>
                                 <input
                                     type="date"
                                     value={date}
@@ -291,11 +291,11 @@ export default function HishobPatti() {
 
                             {/* Farmer Search + Add */}
                             <div className="relative" ref={farmerDropdownRef}>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Farmer <span className="text-red-500">*</span></label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">शेतकरी (Farmer) <span className="text-red-500">*</span></label>
                                 <div className="relative">
                                     <input
                                         type="text"
-                                        placeholder="Search Farmer..."
+                                        placeholder="शेतकरी शोधा... (Search Farmer...)"
                                         value={farmerSearch}
                                         onChange={(e) => {
                                             setFarmerSearch(e.target.value);
@@ -327,7 +327,7 @@ export default function HishobPatti() {
                                             onClick={() => { setShowAddFarmerModal(true); setShowFarmerDropdown(false); }}
                                             className="p-3 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer font-medium flex items-center gap-2 sticky bottom-0"
                                         >
-                                            <span className="material-icons-round text-sm">add</span> Add New Farmer
+                                            <span className="material-icons-round text-sm">add</span> नवीन शेतकरी जोडा (Add New Farmer)
                                         </div>
                                     </div>
                                 )}
@@ -339,11 +339,11 @@ export default function HishobPatti() {
                             <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-slate-50 text-slate-600 text-sm uppercase">
                                     <tr>
-                                        <th className="p-3 border-b min-w-[150px]">Product</th>
-                                        <th className="p-3 border-b min-w-[150px]">Merchant</th>
-                                        <th className="p-3 border-b w-32">Weight</th>
-                                        <th className="p-3 border-b w-32">Rate</th>
-                                        <th className="p-3 border-b w-40 text-right">Amount</th>
+                                        <th className="p-3 border-b min-w-[150px]">माल (Product)</th>
+                                        <th className="p-3 border-b min-w-[150px]">व्यापारी (Merchant)</th>
+                                        <th className="p-3 border-b w-32">वजन (Weight)</th>
+                                        <th className="p-3 border-b w-32">दर (Rate)</th>
+                                        <th className="p-3 border-b w-40 text-right">रक्कम (Amount)</th>
                                         <th className="p-3 border-b w-16"></th>
                                     </tr>
                                 </thead>
@@ -356,7 +356,7 @@ export default function HishobPatti() {
                                                     onChange={e => updateItem(idx, 'productId', e.target.value)}
                                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                                                 >
-                                                    <option value="">Select Product</option>
+                                                    <option value="">माल निवडा (Select Product)</option>
                                                     {products.map(p => (
                                                         <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
                                                     ))}
@@ -368,7 +368,7 @@ export default function HishobPatti() {
                                                     onChange={e => updateItem(idx, 'merchantId', e.target.value)}
                                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                                                 >
-                                                    <option value="">Select Merchant</option>
+                                                    <option value="">व्यापारी निवडा (Select Merchant)</option>
                                                     {merchants.map(m => (
                                                         <option key={m.id} value={m.id}>{m.name}</option>
                                                     ))}
@@ -414,7 +414,7 @@ export default function HishobPatti() {
                                                 onClick={addItem}
                                                 className="text-primary hover:text-primary/80 text-sm font-semibold flex items-center gap-1 px-2"
                                             >
-                                                <span className="material-icons-round text-lg">add</span> Add Item
+                                                <span className="material-icons-round text-lg">add</span> माल जोडा (Add Item)
                                             </button>
                                         </td>
                                     </tr>
@@ -425,10 +425,10 @@ export default function HishobPatti() {
                         {/* Expenses & Totals */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-200 pt-8">
                             <div>
-                                <h3 className="font-semibold text-slate-800 mb-4">Expenses</h3>
+                                <h3 className="font-semibold text-slate-800 mb-4">खर्च (Expenses)</h3>
                                 <div className="space-y-3 max-w-xs">
                                     <div className="flex justify-between items-center">
-                                        <label className="text-sm text-slate-600">Commission</label>
+                                        <label className="text-sm text-slate-600">आडत (Commission)</label>
                                         <input
                                             type="number"
                                             value={expenses.commission}
@@ -459,15 +459,15 @@ export default function HishobPatti() {
 
                             <div className="bg-slate-50 p-6 rounded-xl space-y-3">
                                 <div className="flex justify-between text-slate-600">
-                                    <span>Gross Total</span>
+                                    <span>एकूण रक्कम (Gross Total)</span>
                                     <span>₹ {grossTotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-red-600">
-                                    <span>Total Expenses</span>
+                                    <span>एकूण खर्च (Total Expenses)</span>
                                     <span>- ₹ {totalExpenses.toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-slate-200 pt-3 flex justify-between text-xl font-bold text-slate-900">
-                                    <span>Net Payable</span>
+                                    <span>निव्वळ देय (Net Payable)</span>
                                     <span>₹ {netAmount.toFixed(2)}</span>
                                 </div>
                             </div>
@@ -477,7 +477,7 @@ export default function HishobPatti() {
                     {/* Footer Actions */}
                     <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-4">
                         <button className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-200 rounded-lg">
-                            Cancel
+                            रद्द करा (Cancel)
                         </button>
                         <button
                             onClick={handleSave}
@@ -485,7 +485,7 @@ export default function HishobPatti() {
                             className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2"
                         >
                             <span className="material-icons-round">save</span>
-                            {loading ? 'Saving...' : 'Save Record'}
+                            {loading ? 'Saving...' : 'नोंद जतन करा (Save Record)'}
                         </button>
                     </div>
                 </div>

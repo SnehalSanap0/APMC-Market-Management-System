@@ -46,16 +46,17 @@ export default function Auth() {
       <div className="mb-10 flex flex-row items-center justify-center gap-4 p-4 max-w-lg w-full">
         <img src={logo} alt="Company Logo" className="w-24 h-24 sm:w-32 sm:h-32 object-contain drop-shadow-md shrink-0 rounded-2xl" />
         <div className="flex flex-col text-left">
-          <h1 className="text-3xl font-black leading-tight text-slate-900 tracking-tight">
-            Shri Jay Saptashrungi Vegetable Co.
+          <h1 className="text-3xl font-black leading-tight text-slate-900 tracking-tight devanagari">
+            श्री जय सप्तश्रृंगी व्हेजिटेबल कं.<br/>
+            <span className="text-xl opacity-80">(Shri Jay Saptashrungi Vegetable Co.)</span>
           </h1>
         </div>
       </div>
 
       {/* Auth Card */}
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8">
-        <h2 className="text-xl font-bold text-slate-800 mb-6">
-          {isLogin ? 'Sign in to your account' : 'Create a new account'}
+        <h2 className="text-xl font-bold text-slate-800 mb-6 devanagari">
+          {isLogin ? 'तुमच्या खात्यात प्रवेश करा (Sign in)' : 'नवीन खाते तयार करा (Create Account)'}
         </h2>
 
         {error && (
@@ -72,7 +73,7 @@ export default function Auth() {
 
         <form onSubmit={handleAuth} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">ईमेल (Email Address)</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <Mail size={18} />
@@ -89,7 +90,7 @@ export default function Auth() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">पासवर्ड (Password)</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <LockKeyhole size={18} />
@@ -115,7 +116,7 @@ export default function Auth() {
               <Loader2 size={18} className="animate-spin" />
             ) : (
               <>
-                {isLogin ? 'Sign In' : 'Sign Up'}
+                {isLogin ? 'प्रवेश करा (Sign In)' : 'नोंदणी करा (Sign Up)'}
                 <ArrowRight size={18} />
               </>
             )}
@@ -124,7 +125,7 @@ export default function Auth() {
 
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
           <p className="text-sm text-slate-500">
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            {isLogin ? "खाते नाही? (Don't have an account?) " : "आधीच खाते आहे? (Already have an account?) "}
             <button
               type="button"
               onClick={() => {
@@ -134,14 +135,14 @@ export default function Auth() {
               }}
               className="text-primary hover:text-primary-light font-semibold transition-colors cursor-pointer"
             >
-              {isLogin ? ' Sign up' : ' Sign in'}
+              {isLogin ? ' नोंदणी करा (Sign up)' : ' प्रवेश करा (Sign in)'}
             </button>
           </p>
         </div>
       </div>
       {/* Footer Support Info */}
       <div className="mt-12 text-center text-sm text-slate-400">
-        <p>&copy; {new Date().getFullYear()} Shri Jay Saptashrungi Vegetable Co. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} श्री जय सप्तश्रृंगी व्हेजिटेबल कं. (Shri Jay Saptashrungi Vegetable Co.) All rights reserved.</p>
       </div>
     </div>
   );
