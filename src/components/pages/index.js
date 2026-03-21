@@ -7,3 +7,5 @@ export { default as VyapariKhatavni } from './VyapariKhatavni';
 export { default as DhadaBook } from './DhadaBook';
 export { default as PattiNond } from './PattiNond';
 export { default as Auth } from './Auth';
+export { default as Udharinond } from './Udharinond';
+export { default as AdminSettings } from './AdminSettings';

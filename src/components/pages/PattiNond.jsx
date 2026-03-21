@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Printer } from 'lucide-react';
+import { printWithFilename } from '../../lib/printWithFilename';
+import { useLanguage } from '../../lib/language';
+import PrintHeader from '../shared/PrintHeader';
 
 export default function PattiNond() {
+    const { t } = useLanguage();
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [entries, setEntries] = useState([]);
@@ -88,7 +92,7 @@ export default function PattiNond() {
                 {/* Header Section */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Patti Nond / पट्टी नोंद</h1>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{t('पट्टी नोंद', 'Patti Nond')}</h1>
                     </div>
 
                     {/* Filters & Actions */}
@@ -106,26 +110,27 @@ export default function PattiNond() {
                         </div>
 
                         <button
-                            onClick={() => window.print()}
+                            onClick={() => {
+                                const [y, m, d] = date.split('-');
+                                printWithFilename(`PattiNond_${d}-${m}-${y}`);
+                            }}
                             className="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-2"
                             disabled={entries.length === 0}
                         >
                             <Printer size={18} />
-                            <span className="hidden sm:inline font-medium text-sm">Print Ledger</span>
+                            <span className="hidden sm:inline font-medium text-sm">{t('लेजर प्रिंट करा', 'Print Ledger')}</span>
                         </button>
                     </div>
                 </div>
 
                 {/* Print Header */}
-                <div className="hidden print:block mb-6 relative">
-                    <div className="text-center">
-                        <div className="inline-block border-2 border-green-800 px-6 py-2 bg-green-50/50">
-                            <h1 className="text-3xl font-black text-green-900 devanagari tracking-wider">पट्टीनोंद</h1>
-                        </div>
-                    </div>
-                    <div className="mt-2 text-center text-sm font-bold text-slate-600">
-                        Date: {new Date(date).toLocaleDateString('en-GB')}
-                    </div>
+                <div className="hidden print:block mb-4">
+                    <PrintHeader 
+                        docTitle="पट्टी नोंद (Patti Nond)" 
+                        rightInfo={[
+                            { label: 'Date', value: new Date(date).toLocaleDateString('en-GB') }
+                        ]}
+                    />
                 </div>
 
                 {/* Content Area */}
@@ -178,7 +183,7 @@ export default function PattiNond() {
                                     {entries.map((entry) => (
                                         <tr key={entry.id} className="border-b border-green-300/40 hover:bg-green-50/30">
                                             {/* Receipt No */}
-                                            <td className="border-r-2 border-green-800 p-1 font-sans">{entry.receipt_no.split('-').pop()}</td>
+                                            <td className="border-r-2 border-green-800 p-1 font-sans text-xs">{entry.receipt_no}</td>
 
                                             {/* मालाची किंमत (Gross Amount) */}
                                             <td className="border-r border-green-400 p-1 text-right pr-2">{getRs(entry.amount)}</td>

@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { LockKeyhole, Printer } from 'lucide-react';
+import PrintHeader from '../shared/PrintHeader';
+import { printWithFilename } from '../../lib/printWithFilename';
+import { useToast } from '../../lib/toast.jsx';
+import { useLanguage } from '../../lib/language';
 
 export default function HishobPatti() {
+    const { t } = useLanguage();
+    const toast = useToast();
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('CREATE'); // CREATE, VIEW
 
@@ -48,8 +54,12 @@ export default function HishobPatti() {
 
     useEffect(() => {
         fetchMasters();
-        generateReceiptNo();
     }, []);
+
+    // Re-generate receipt number whenever the date changes
+    useEffect(() => {
+        generateReceiptNo(date);
+    }, [date]);
 
     useEffect(() => {
         if (activeTab === 'VIEW' && viewDate && viewFarmer) {
@@ -108,11 +118,14 @@ export default function HishobPatti() {
         if (pRes.data) setProducts(pRes.data);
     };
 
-    const generateReceiptNo = () => {
-        // Simple generation for now: HP-YYYYMMDD-Random
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        setReceiptNo(`HP-${today}-${random}`);
+    const generateReceiptNo = async (forDate) => {
+        const { count } = await supabase
+            .from('hishob_entries')
+            .select('*', { count: 'exact', head: true })
+            .eq('date', forDate);
+        const seq = ((count ?? 0) + 1).toString().padStart(3, '0');
+        const datePart = forDate.replace(/-/g, '');
+        setReceiptNo(`HP-${datePart}-${seq}`);
     };
 
     // --- Farmer Logic ---
@@ -128,7 +141,10 @@ export default function HishobPatti() {
     };
 
     const handleAddFarmer = async () => {
-        if (!newFarmerData.name) return alert('Name is required');
+        if (!newFarmerData.name) {
+            toast.warning('Name is required');
+            return;
+        }
 
         const { data, error } = await supabase
             .from('farmers')
@@ -137,7 +153,7 @@ export default function HishobPatti() {
             .single();
 
         if (error) {
-            alert('Error adding farmer: ' + error.message);
+            toast.error('Error adding farmer: ' + error.message);
         } else {
             setFarmers([...farmers, data]);
             handleFarmerSelect(data);
@@ -178,7 +194,10 @@ export default function HishobPatti() {
 
     // --- Save ---
     const handleSave = async () => {
-        if (!selectedFarmer || items.some(i => !i.productId || !i.merchantId)) return alert('Please select Farmer, Product, and Merchant for all items');
+        if (!selectedFarmer || items.some(i => !i.productId || !i.merchantId)) {
+            toast.warning('Please select Farmer, Product, and Merchant for all items');
+            return;
+        }
 
         setLoading(true);
 
@@ -197,7 +216,7 @@ export default function HishobPatti() {
             .single();
 
         if (entryError) {
-            alert('Error saving patti: ' + entryError.message);
+            toast.error('Error saving patti: ' + entryError.message);
             setLoading(false);
             return;
         }
@@ -217,17 +236,17 @@ export default function HishobPatti() {
             .insert(itemsToSave);
 
         if (itemsError) {
-            alert('Error saving items: ' + itemsError.message);
+            toast.error('Error saving items: ' + itemsError.message);
         } else {
             // AUTO-SAVE: Update/Create corresponding Merchant Bills & Dhada Entries
             await autoUpdateMerchantBills(date, itemsToSave.map(i => i.merchant_id));
 
-            alert('Hishob Patti Saved Successfully!');
+            toast.success('हिशोब पट्टी जतन झाली! (Hishob Patti Saved Successfully!)');
             // Reset form
             setSelectedFarmer(null);
             setFarmerSearch('');
             setItems([{ productId: '', merchantId: '', weight: '', rate: '', amount: 0 }]);
-            generateReceiptNo();
+            generateReceiptNo(date); // refresh for same date (count now +1)
         }
         setLoading(false);
     };
@@ -287,7 +306,12 @@ export default function HishobPatti() {
                 }).eq('bill_id', existingBill.id);
             } else {
                 // Insert new
-                const newBillNo = `MB-${billDate.replace(/-/g, '')}-${merchantId.substring(0, 4).toUpperCase()}`;
+                const { count: mbCount } = await supabase
+                    .from('merchant_bills')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('date', billDate);
+                const mbSeq = ((mbCount ?? 0) + 1).toString().padStart(3, '0');
+                const newBillNo = `MB-${billDate.replace(/-/g, '')}-${mbSeq}`;
                 const { data: newBill } = await supabase.from('merchant_bills').insert([{
                     date: billDate,
                     merchant_id: merchantId,
@@ -325,9 +349,13 @@ export default function HishobPatti() {
         setShowKeyModal(false);
         setSecurityKey('');
         setKeyError('');
-        setTimeout(() => {
-            window.print();
-        }, 300);
+        // Build filename: use first patti's receipt_no + farmer name
+        const first = pattis[0];
+        const farmerSlug = (first?.farmers?.name || 'Farmer').replace(/\s+/g, '_');
+        const filename = pattis.length === 1
+            ? `${first.receipt_no}_${farmerSlug}`
+            : `${first.receipt_no}_to_${pattis[pattis.length - 1].receipt_no}_${farmerSlug}`;
+        setTimeout(() => printWithFilename(filename), 300);
     };
 
     return (
@@ -338,13 +366,13 @@ export default function HishobPatti() {
                     onClick={() => setActiveTab('CREATE')}
                     className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'CREATE' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
                 >
-                    नवीन नोंद (Create New Entry)
+                    {t('नवीन नोंद', 'Create New Entry')}
                 </button>
                 <button
                     onClick={() => setActiveTab('VIEW')}
                     className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'VIEW' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
                 >
-                    रेजिस्टर पहा आणि प्रिंट करा (View & Print)
+                    {t('रेजिस्टर पहा आणि प्रिंट करा', 'View & Print')}
                 </button>
             </div>
 
@@ -353,11 +381,10 @@ export default function HishobPatti() {
                     {/* Header */}
                     <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center">
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800">हिशोब पट्टी नोंद (Hishob Patti Entry)</h1>
-                            <p className="text-slate-500 text-sm">नवीन सेटलमेंट स्लिप तयार करा (Create new settlement slip)</p>
+                            <h1 className="text-2xl font-bold text-slate-800">{t('हिशोब पट्टी नोंद', 'Hishob Patti Entry')}</h1>
                         </div>
                         <div className="text-right">
-                            <div className="text-sm text-slate-500">पावती क्रमांक (Receipt No)</div>
+                            <div className="text-sm text-slate-500">{t('पावती क्रमांक', 'Receipt No')}</div>
                             <div className="font-mono font-bold text-lg">{receiptNo}</div>
                         </div>
                     </div>
@@ -366,7 +393,7 @@ export default function HishobPatti() {
                         {/* Top Section: Date, Merchant, Farmer */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">तारीख (Date) <span className="text-red-500">*</span></label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{t('तारीख', 'Date')} <span className="text-red-500">*</span></label>
                                 <input
                                     type="date"
                                     value={date}
@@ -377,11 +404,11 @@ export default function HishobPatti() {
 
                             {/* Farmer Search + Add */}
                             <div className="relative" ref={farmerDropdownRef}>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">शेतकरी (Farmer) <span className="text-red-500">*</span></label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{t('शेतकरी', 'Farmer')} <span className="text-red-500">*</span></label>
                                 <div className="relative">
                                     <input
                                         type="text"
-                                        placeholder="शेतकरी शोधा... (Search Farmer...)"
+                                        placeholder={t('शेतकरी शोधा...', 'Search Farmer...')}
                                         value={farmerSearch}
                                         onChange={(e) => {
                                             setFarmerSearch(e.target.value);
@@ -413,7 +440,7 @@ export default function HishobPatti() {
                                             onClick={() => { setShowAddFarmerModal(true); setShowFarmerDropdown(false); }}
                                             className="p-3 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer font-medium flex items-center gap-2 sticky bottom-0"
                                         >
-                                            <span className="material-icons-round text-sm">add</span> नवीन शेतकरी जोडा (Add New Farmer)
+                                            <span className="material-icons-round text-sm">add</span> {t('नवीन शेतकरी जोडा', 'Add New Farmer')}
                                         </div>
                                     </div>
                                 )}
@@ -425,11 +452,11 @@ export default function HishobPatti() {
                             <table className="w-full text-left min-w-[700px]">
                                 <thead className="bg-slate-50 text-slate-600 text-sm uppercase">
                                     <tr>
-                                        <th className="p-3 border-b min-w-[150px]">माल (Product)</th>
-                                        <th className="p-3 border-b min-w-[150px]">व्यापारी (Merchant)</th>
-                                        <th className="p-3 border-b w-32">वजन (Weight)</th>
-                                        <th className="p-3 border-b w-32">दर (Rate)</th>
-                                        <th className="p-3 border-b w-40 text-right">रक्कम (Amount)</th>
+                                        <th className="p-3 border-b min-w-[150px]">{t('माल', 'Product')}</th>
+                                        <th className="p-3 border-b min-w-[150px]">{t('व्यापारी', 'Merchant')}</th>
+                                        <th className="p-3 border-b w-32">{t('वजन', 'Weight')}</th>
+                                        <th className="p-3 border-b w-32">{t('दर', 'Rate')}</th>
+                                        <th className="p-3 border-b w-40 text-right">{t('रक्कम', 'Amount')}</th>
                                         <th className="p-3 border-b w-16"></th>
                                     </tr>
                                 </thead>
@@ -442,7 +469,7 @@ export default function HishobPatti() {
                                                     onChange={e => updateItem(idx, 'productId', e.target.value)}
                                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                                                 >
-                                                    <option value="">माल निवडा (Select Product)</option>
+                                                    <option value="">{t('माल निवडा', 'Select Product')}</option>
                                                     {products.map(p => (
                                                         <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
                                                     ))}
@@ -454,7 +481,7 @@ export default function HishobPatti() {
                                                     onChange={e => updateItem(idx, 'merchantId', e.target.value)}
                                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                                                 >
-                                                    <option value="">व्यापारी निवडा (Select Merchant)</option>
+                                                    <option value="">{t('व्यापारी निवडा', 'Select Merchant')}</option>
                                                     {merchants.map(m => (
                                                         <option key={m.id} value={m.id}>{m.name}</option>
                                                     ))}
@@ -500,7 +527,7 @@ export default function HishobPatti() {
                                                 onClick={addItem}
                                                 className="text-primary hover:text-primary/80 text-sm font-semibold flex items-center gap-1 px-2"
                                             >
-                                                <span className="material-icons-round text-lg">add</span> माल जोडा (Add Item)
+                                                <span className="material-icons-round text-lg">add</span> {t('माल जोडा', 'Add Item')}
                                             </button>
                                         </td>
                                     </tr>
@@ -511,10 +538,10 @@ export default function HishobPatti() {
                         {/* Expenses & Totals */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-200 pt-8">
                             <div>
-                                <h3 className="font-semibold text-slate-800 mb-4">खर्च (Expenses)</h3>
+                                <h3 className="font-semibold text-slate-800 mb-4">{t('खर्च', 'Expenses')}</h3>
                                 <div className="space-y-3 max-w-xs">
                                     <div className="flex justify-between items-center">
-                                        <label className="text-sm text-slate-600">आडत (Commission)</label>
+                                        <label className="text-sm text-slate-600">{t('आडत', 'Commission')}</label>
                                         <input
                                             type="number"
                                             value={expenses.commission}
@@ -523,7 +550,7 @@ export default function HishobPatti() {
                                         />
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <label className="text-sm text-slate-600">Labor (Hamali)</label>
+                                        <label className="text-sm text-slate-600">{t('हमाली', 'Labor (Hamali)')}</label>
                                         <input
                                             type="number"
                                             value={expenses.labor}
@@ -532,7 +559,7 @@ export default function HishobPatti() {
                                         />
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <label className="text-sm text-slate-600">Weighing (Mapai)</label>
+                                        <label className="text-sm text-slate-600">{t('मापाई', 'Weighing (Mapai)')}</label>
                                         <input
                                             type="number"
                                             value={expenses.weighing}
@@ -545,15 +572,15 @@ export default function HishobPatti() {
 
                             <div className="bg-slate-50 p-6 rounded-xl space-y-3">
                                 <div className="flex justify-between text-slate-600">
-                                    <span>एकूण रक्कम (Gross Total)</span>
+                                    <span>{t('एकूण रक्कम', 'Gross Total')}</span>
                                     <span>₹ {grossTotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-red-600">
-                                    <span>एकूण खर्च (Total Expenses)</span>
+                                    <span>{t('एकूण खर्च', 'Total Expenses')}</span>
                                     <span>- ₹ {totalExpenses.toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-slate-200 pt-3 flex justify-between text-xl font-bold text-slate-900">
-                                    <span>निव्वळ देय (Net Payable)</span>
+                                    <span>{t('निव्वळ देय', 'Net Payable')}</span>
                                     <span>₹ {netAmount.toFixed(2)}</span>
                                 </div>
                             </div>
@@ -563,7 +590,7 @@ export default function HishobPatti() {
                     {/* Footer Actions */}
                     <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-4">
                         <button className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-200 rounded-lg">
-                            रद्द करा (Cancel)
+                            {t('रद्द करा', 'Cancel')}
                         </button>
                         <button
                             onClick={handleSave}
@@ -571,7 +598,7 @@ export default function HishobPatti() {
                             className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2"
                         >
                             <span className="material-icons-round">save</span>
-                            {loading ? 'Saving...' : 'नोंद जतन करा (Save Record)'}
+                            {loading ? t('जतन करत आहे...', 'Saving...') : t('नोंद जतन करा', 'Save Record')}
                         </button>
                     </div>
                 </div>
@@ -581,15 +608,15 @@ export default function HishobPatti() {
                 <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print:shadow-none print:border-none">
                     <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center print:hidden">
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800">View Hishob Pattis</h1>
-                            <p className="text-slate-500 text-sm">Review & print generated farmer slips</p>
+                            <h1 className="text-2xl font-bold text-slate-800">{t('हिशोब पट्टी पहा', 'View Hishob Pattis')}</h1>
+                            <p className="text-slate-500 text-sm">{t('तयार झालेल्या शेतकरी स्लिप्स पहा आणि प्रिंट करा', 'Review & print generated farmer slips')}</p>
                         </div>
                     </div>
 
                     <div className="p-8 space-y-8 print:p-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-emerald-50 p-6 rounded-xl border border-emerald-100 print:hidden">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{t('तारीख', 'Date')}</label>
                                 <input
                                     type="date"
                                     value={viewDate}
@@ -599,13 +626,13 @@ export default function HishobPatti() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">शेतकरी (Farmer)</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{t('शेतकरी', 'Farmer')}</label>
                                 <select
                                     value={viewFarmer}
                                     onChange={e => setViewFarmer(e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-white"
                                 >
-                                    <option value="">Select Farmer</option>
+                                    <option value="">{t('शेतकरी निवडा', 'Select Farmer')}</option>
                                     {farmers.map(f => (
                                         <option key={f.id} value={f.id}>{f.name} {f.village ? `(${f.village})` : ''}</option>
                                     ))}
@@ -613,32 +640,28 @@ export default function HishobPatti() {
                             </div>
                         </div>
 
-                        {loading && <div className="text-center py-4 print:hidden">Loading Pattis...</div>}
+                        {loading && <div className="text-center py-4 print:hidden">{t('हिशोब पट्ट्या लोड होत आहेत...', 'Loading Pattis...')}</div>}
 
                         {!loading && pattis.length === 0 && viewFarmer && (
                             <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-slate-200 print:hidden">
-                                No Hishob Pattis generated for this Farmer on {new Date(viewDate).toLocaleDateString('en-GB')}
+                                {t('या शेतकऱ्यासाठी कोणतीही हिशोब पट्टी तयार झाली नाही', 'No Hishob Pattis generated for this Farmer')}
                             </div>
                         )}
 
                         <div className="space-y-8 print:space-y-4">
                             {pattis.map((patti) => (
                                 <div key={patti.id} className="border-2 border-slate-800 rounded-xl overflow-hidden print:border-slate-800 print:rounded-none page-break-after">
-                                    <div className="text-center border-b-2 border-slate-800 p-4 bg-slate-100 print:bg-white">
-                                        <h1 className="text-2xl font-black text-slate-900 devanagari">श्री जय सप्तश्रृंगी व्हेजिटेबल कं.</h1>
-                                        <p className="text-slate-700 font-bold uppercase text-sm mt-1 tracking-widest">Hishob Patti / शेतकरी हिशोब पट्टी</p>
-                                    </div>
-                                    <div className="p-4 flex justify-between border-b-2 border-slate-800">
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-500 uppercase">शेतकरी (Farmer):</p>
-                                            <p className="font-bold text-lg text-slate-900">{patti.farmers?.name}</p>
-                                            <p className="text-sm text-slate-700">गाव (Village): {patti.farmers?.village || '-'}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold mb-1 text-slate-800">Date: {new Date(patti.date).toLocaleDateString('en-GB')}</p>
-                                            <p className="text-sm font-bold text-slate-800">Receipt No: {patti.receipt_no}</p>
-                                        </div>
-                                    </div>
+                                    <PrintHeader
+                                        docTitle="हिशोब पट्टी · Hishob Patti"
+                                        leftInfo={[
+                                            { label: 'शेतकरी / Farmer', value: patti.farmers?.name },
+                                            { label: 'गाव / Village', value: patti.farmers?.village || '—' },
+                                        ]}
+                                        rightInfo={[
+                                            { label: 'तारीख / Date', value: new Date(patti.date + 'T00:00:00').toLocaleDateString('en-GB') },
+                                            { label: 'पावती क्र / Receipt No', value: patti.receipt_no },
+                                        ]}
+                                    />
 
                                     <table className="w-full text-left">
                                         <thead className="bg-slate-50 border-b-2 border-slate-800 print:bg-white text-sm uppercase">

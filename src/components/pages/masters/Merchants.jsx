@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabaseClient';
+import { useToast } from '../../../lib/toast.jsx';
 
 const fetchMerchants = async () => {
     const { data, error } = await supabase.from('merchants').select('*').order('name');
@@ -10,9 +11,11 @@ const fetchMerchants = async () => {
 
 export default function Merchants() {
     const queryClient = useQueryClient();
+    const toast = useToast();
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ name: '', mobile: '', opening_balance: 0 });
     const [editingId, setEditingId] = useState(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
     // ── READ ──────────────────────────────────────────────────────────────────
     const { data: merchants = [], isLoading } = useQuery({
@@ -25,18 +28,21 @@ export default function Merchants() {
 
     const addMutation = useMutation({
         mutationFn: (payload) => supabase.from('merchants').insert([payload]).throwOnError(),
-        onSuccess: invalidate,
+        onSuccess: () => { invalidate(); toast.success('Merchant added successfully!'); },
+        onError: (err) => toast.error('Failed to add merchant: ' + err.message),
     });
 
     const updateMutation = useMutation({
         mutationFn: ({ id, payload }) =>
             supabase.from('merchants').update(payload).eq('id', id).throwOnError(),
-        onSuccess: invalidate,
+        onSuccess: () => { invalidate(); toast.success('Merchant updated successfully!'); },
+        onError: (err) => toast.error('Failed to update merchant: ' + err.message),
     });
 
     const deleteMutation = useMutation({
         mutationFn: (id) => supabase.from('merchants').delete().eq('id', id).throwOnError(),
-        onSuccess: invalidate,
+        onSuccess: () => { invalidate(); toast.success('Merchant deleted.'); },
+        onError: (err) => toast.error('Failed to delete: ' + err.message),
     });
 
     // ── HANDLERS ──────────────────────────────────────────────────────────────
@@ -58,8 +64,10 @@ export default function Merchants() {
         setShowModal(true);
     };
 
-    const handleDelete = (id) => {
-        if (confirm('Delete merchant?')) deleteMutation.mutate(id);
+    const handleDelete = (id) => setConfirmDeleteId(id);
+    const confirmDelete = () => {
+        deleteMutation.mutate(confirmDeleteId);
+        setConfirmDeleteId(null);
     };
 
     const isMutating = addMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
@@ -107,7 +115,7 @@ export default function Merchants() {
                 </div>
             )}
 
-            {/* Modal */}
+            {/* Add / Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
@@ -133,6 +141,21 @@ export default function Merchants() {
                                 <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {confirmDeleteId && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
+                        <span className="material-icons-round text-5xl text-red-400 mb-3 block">delete_forever</span>
+                        <h3 className="text-lg font-bold text-slate-800 mb-1">Delete Merchant?</h3>
+                        <p className="text-slate-500 text-sm mb-6">This action cannot be undone.</p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setConfirmDeleteId(null)} className="flex-1 px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium">Cancel</button>
+                            <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">Yes, Delete</button>
+                        </div>
                     </div>
                 </div>
             )}

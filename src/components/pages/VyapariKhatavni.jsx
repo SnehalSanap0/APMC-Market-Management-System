@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { useLanguage } from '../../lib/language';
 
 export default function VyapariKhatavni() {
+    const { t } = useLanguage();
     const [merchants, setMerchants] = useState([]);
     const [selectedMerchant, setSelectedMerchant] = useState('');
     const [ledger, setLedger] = useState([]);
@@ -60,16 +62,15 @@ export default function VyapariKhatavni() {
                 {/* Header & Controls */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Merchant Ledger</h1>
-                        <p className="text-slate-500 text-sm">Vyapari Khatavni (Udharinond)</p>
+                        <h1 className="text-2xl font-bold text-slate-800">{t('व्यापारी खतावणी', 'Merchant Ledger')}</h1>
                     </div>
                     <div className="w-full md:w-64">
                         <select
                             value={selectedMerchant}
                             onChange={e => setSelectedMerchant(e.target.value)}
-                            className="w-full border-slate-300 rounded-lg focus:ring-primary focus:border-primary font-medium"
+                            className="w-full border border-slate-300 bg-white px-3 py-2 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary font-medium focus:outline-none"
                         >
-                            <option value="">Select Merchant to View</option>
+                            <option value="">{t('व्यापारी निवडा', 'Select Merchant')}</option>
                             {merchants.map(m => (
                                 <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
