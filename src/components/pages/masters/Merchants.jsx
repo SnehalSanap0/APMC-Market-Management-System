@@ -1,36 +1,55 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabaseClient';
 
+const fetchMerchants = async () => {
+    const { data, error } = await supabase.from('merchants').select('*').order('name');
+    if (error) throw error;
+    return data ?? [];
+};
+
 export default function Merchants() {
-    const [merchants, setMerchants] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ name: '', mobile: '', opening_balance: 0 });
     const [editingId, setEditingId] = useState(null);
 
-    useEffect(() => {
-        fetchMerchants();
-    }, []);
+    // ── READ ──────────────────────────────────────────────────────────────────
+    const { data: merchants = [], isLoading } = useQuery({
+        queryKey: ['merchants'],
+        queryFn: fetchMerchants,
+    });
 
-    const fetchMerchants = async () => {
-        setLoading(true);
-        const { data, error } = await supabase.from('merchants').select('*').order('name');
-        if (error) console.error(error);
-        else setMerchants(data || []);
-        setLoading(false);
-    };
+    // ── WRITE helpers ─────────────────────────────────────────────────────────
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['merchants'] });
 
-    const handleSubmit = async (e) => {
+    const addMutation = useMutation({
+        mutationFn: (payload) => supabase.from('merchants').insert([payload]).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, payload }) =>
+            supabase.from('merchants').update(payload).eq('id', id).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id) => supabase.from('merchants').delete().eq('id', id).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    // ── HANDLERS ──────────────────────────────────────────────────────────────
+    const handleSubmit = (e) => {
         e.preventDefault();
         if (editingId) {
-            await supabase.from('merchants').update(formData).eq('id', editingId);
+            updateMutation.mutate({ id: editingId, payload: formData });
         } else {
-            await supabase.from('merchants').insert([formData]);
+            addMutation.mutate(formData);
         }
         setShowModal(false);
         setFormData({ name: '', mobile: '', opening_balance: 0 });
         setEditingId(null);
-        fetchMerchants();
     };
 
     const handleEdit = (m) => {
@@ -39,13 +58,13 @@ export default function Merchants() {
         setShowModal(true);
     };
 
-    const handleDelete = async (id) => {
-        if (confirm('Delete merchant?')) {
-            await supabase.from('merchants').delete().eq('id', id);
-            fetchMerchants();
-        }
+    const handleDelete = (id) => {
+        if (confirm('Delete merchant?')) deleteMutation.mutate(id);
     };
 
+    const isMutating = addMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -58,7 +77,7 @@ export default function Merchants() {
                 </button>
             </div>
 
-            {loading ? <div className="text-center py-12">Loading...</div> : (
+            {isLoading ? <div className="text-center py-12">Loading...</div> : (
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -70,14 +89,16 @@ export default function Merchants() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {merchants.map((m) => (
+                            {merchants.length === 0 ? (
+                                <tr><td colSpan="4" className="p-8 text-center text-slate-400">No merchants found. Add one to get started.</td></tr>
+                            ) : merchants.map((m) => (
                                 <tr key={m.id} className="hover:bg-slate-50">
                                     <td className="p-4 font-medium">{m.name}</td>
                                     <td className="p-4 text-slate-600 font-mono text-sm">{m.mobile}</td>
                                     <td className="p-4 text-right font-mono text-slate-700">₹ {m.opening_balance}</td>
                                     <td className="p-4 text-right space-x-2">
-                                        <button onClick={() => handleEdit(m)} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><span className="material-icons-round text-lg">edit</span></button>
-                                        <button onClick={() => handleDelete(m.id)} className="text-red-600 hover:bg-red-50 p-1 rounded"><span className="material-icons-round text-lg">delete</span></button>
+                                        <button onClick={() => handleEdit(m)} disabled={isMutating} className="text-blue-600 hover:bg-blue-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">edit</span></button>
+                                        <button onClick={() => handleDelete(m.id)} disabled={isMutating} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">delete</span></button>
                                     </td>
                                 </tr>
                             ))}

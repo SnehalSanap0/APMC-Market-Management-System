@@ -1,50 +1,56 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabaseClient';
 
+const fetchFarmers = async () => {
+    const { data, error } = await supabase.from('farmers').select('*').order('name');
+    if (error) throw error;
+    return data ?? [];
+};
+
 export default function Farmers() {
-    const [farmers, setFarmers] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ name: '', mobile: '', village: '' });
     const [editingId, setEditingId] = useState(null);
 
-    useEffect(() => {
-        fetchFarmers();
-    }, []);
+    // ── READ ──────────────────────────────────────────────────────────────────
+    const { data: farmers = [], isLoading } = useQuery({
+        queryKey: ['farmers'],
+        queryFn: fetchFarmers,
+    });
 
-    const fetchFarmers = async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('farmers')
-            .select('*')
-            .order('name');
+    // ── WRITE helpers ─────────────────────────────────────────────────────────
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['farmers'] });
 
-        if (error) console.error('Error fetching farmers:', error);
-        else setFarmers(data || []);
-        setLoading(false);
-    };
+    const addMutation = useMutation({
+        mutationFn: (payload) => supabase.from('farmers').insert([payload]).throwOnError(),
+        onSuccess: invalidate,
+    });
 
-    const handleSubmit = async (e) => {
+    const updateMutation = useMutation({
+        mutationFn: ({ id, payload }) =>
+            supabase.from('farmers').update(payload).eq('id', id).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id) => supabase.from('farmers').delete().eq('id', id).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    // ── HANDLERS ──────────────────────────────────────────────────────────────
+    const handleSubmit = (e) => {
         e.preventDefault();
         const { name, mobile, village } = formData;
-
         if (editingId) {
-            const { error } = await supabase
-                .from('farmers')
-                .update({ name, mobile, village })
-                .eq('id', editingId);
-            if (error) alert('Error updating farmer');
+            updateMutation.mutate({ id: editingId, payload: { name, mobile, village } });
         } else {
-            const { error } = await supabase
-                .from('farmers')
-                .insert([{ name, mobile, village }]);
-            if (error) alert('Error adding farmer');
+            addMutation.mutate({ name, mobile, village });
         }
-
         setShowModal(false);
         setFormData({ name: '', mobile: '', village: '' });
         setEditingId(null);
-        fetchFarmers();
     };
 
     const handleEdit = (farmer) => {
@@ -53,13 +59,13 @@ export default function Farmers() {
         setShowModal(true);
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('Are you sure you want to delete this farmer?')) return;
-        const { error } = await supabase.from('farmers').delete().eq('id', id);
-        if (error) alert('Error deleting farmer');
-        else fetchFarmers();
+    const handleDelete = (id) => {
+        if (confirm('Are you sure you want to delete this farmer?')) deleteMutation.mutate(id);
     };
 
+    const isMutating = addMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -73,13 +79,13 @@ export default function Farmers() {
                 </button>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="text-center py-12 text-slate-500">Loading farmers...</div>
             ) : (
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50 text-slate-600 text-sm uppercas">
+                            <tr className="bg-slate-50 text-slate-600 text-sm uppercase">
                                 <th className="p-4 border-b">Name</th>
                                 <th className="p-4 border-b">Mobile</th>
                                 <th className="p-4 border-b">Village</th>
@@ -96,8 +102,8 @@ export default function Farmers() {
                                         <td className="p-4 text-slate-600">{farmer.mobile}</td>
                                         <td className="p-4 text-slate-600">{farmer.village}</td>
                                         <td className="p-4 text-right space-x-2">
-                                            <button onClick={() => handleEdit(farmer)} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><span className="material-icons-round text-lg">edit</span></button>
-                                            <button onClick={() => handleDelete(farmer.id)} className="text-red-600 hover:bg-red-50 p-1 rounded"><span className="material-icons-round text-lg">delete</span></button>
+                                            <button onClick={() => handleEdit(farmer)} disabled={isMutating} className="text-blue-600 hover:bg-blue-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">edit</span></button>
+                                            <button onClick={() => handleDelete(farmer.id)} disabled={isMutating} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">delete</span></button>
                                         </td>
                                     </tr>
                                 ))

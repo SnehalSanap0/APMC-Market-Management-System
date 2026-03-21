@@ -1,36 +1,55 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabaseClient';
 
+const fetchProducts = async () => {
+    const { data, error } = await supabase.from('products').select('*').order('name');
+    if (error) throw error;
+    return data ?? [];
+};
+
 export default function Products() {
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({ name: '', unit: '' });
     const [editingId, setEditingId] = useState(null);
 
-    useEffect(() => {
-        fetchProducts();
-    }, []);
+    // ── READ ──────────────────────────────────────────────────────────────────
+    const { data: products = [], isLoading } = useQuery({
+        queryKey: ['products'],
+        queryFn: fetchProducts,
+    });
 
-    const fetchProducts = async () => {
-        setLoading(true);
-        const { data, error } = await supabase.from('products').select('*').order('name');
-        if (error) console.error(error);
-        else setProducts(data || []);
-        setLoading(false);
-    };
+    // ── WRITE helpers ─────────────────────────────────────────────────────────
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['products'] });
 
-    const handleSubmit = async (e) => {
+    const addMutation = useMutation({
+        mutationFn: (payload) => supabase.from('products').insert([payload]).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, payload }) =>
+            supabase.from('products').update(payload).eq('id', id).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id) => supabase.from('products').delete().eq('id', id).throwOnError(),
+        onSuccess: invalidate,
+    });
+
+    // ── HANDLERS ──────────────────────────────────────────────────────────────
+    const handleSubmit = (e) => {
         e.preventDefault();
         if (editingId) {
-            await supabase.from('products').update(formData).eq('id', editingId);
+            updateMutation.mutate({ id: editingId, payload: formData });
         } else {
-            await supabase.from('products').insert([formData]);
+            addMutation.mutate(formData);
         }
         setShowModal(false);
         setFormData({ name: '', unit: '' });
         setEditingId(null);
-        fetchProducts();
     };
 
     const handleEdit = (p) => {
@@ -39,13 +58,13 @@ export default function Products() {
         setShowModal(true);
     };
 
-    const handleDelete = async (id) => {
-        if (confirm('Delete product?')) {
-            await supabase.from('products').delete().eq('id', id);
-            fetchProducts();
-        }
+    const handleDelete = (id) => {
+        if (confirm('Delete product?')) deleteMutation.mutate(id);
     };
 
+    const isMutating = addMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+    // ── RENDER ────────────────────────────────────────────────────────────────
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -58,7 +77,7 @@ export default function Products() {
                 </button>
             </div>
 
-            {loading ? <div className="text-center py-12">Loading...</div> : (
+            {isLoading ? <div className="text-center py-12">Loading...</div> : (
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -69,13 +88,15 @@ export default function Products() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {products.map((p) => (
+                            {products.length === 0 ? (
+                                <tr><td colSpan="3" className="p-8 text-center text-slate-400">No products found. Add one to get started.</td></tr>
+                            ) : products.map((p) => (
                                 <tr key={p.id} className="hover:bg-slate-50">
                                     <td className="p-4 font-medium">{p.name}</td>
                                     <td className="p-4 text-slate-600">{p.unit}</td>
                                     <td className="p-4 text-right space-x-2">
-                                        <button onClick={() => handleEdit(p)} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><span className="material-icons-round text-lg">edit</span></button>
-                                        <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:bg-red-50 p-1 rounded"><span className="material-icons-round text-lg">delete</span></button>
+                                        <button onClick={() => handleEdit(p)} disabled={isMutating} className="text-blue-600 hover:bg-blue-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">edit</span></button>
+                                        <button onClick={() => handleDelete(p.id)} disabled={isMutating} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">delete</span></button>
                                     </td>
                                 </tr>
                             ))}
