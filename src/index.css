@@ -6,10 +6,10 @@
     --color-primary-light: #be185d;
     --color-background: #f8fafc;
     --color-accent: #10B981;
-    --font-display: 'Lato', sans-serif;
-    --font-sans: 'Lato', sans-serif;
-    --font-serif: 'Lato', sans-serif;
-    --font-mono: 'Lato', monospace;
+    --font-display: 'Lora', serif;
+    --font-sans: 'Lora', serif;
+    --font-serif: 'Lora', serif;
+    --font-mono: 'Lora', serif;
 }
 
 /* Base Styles */
@@ -66,7 +66,6 @@
     }
 }
 
-/* Print Styles */
 @media print {
     .no-print {
         display: none;
@@ -84,3 +83,19 @@
         background: white !important;
     }
 }
+
+/* Toast animations */
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(110%); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(110%); }
+}
+
+@keyframes shrinkWidth {
+    from { width: 100%; }
+    to   { width: 0%; }
+}

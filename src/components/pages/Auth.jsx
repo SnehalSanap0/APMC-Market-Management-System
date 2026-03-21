@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Mail, LockKeyhole, ArrowRight, Loader2 } from 'lucide-react';
 import logo from '../../assets/logo.png';
@@ -10,6 +10,16 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize(); // Check initial size
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -40,14 +50,39 @@ export default function Auth() {
     }
   };
 
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 text-center">
+        <div className="mb-8">
+          <img src={logo} alt="Company Logo" className="w-24 h-24 object-contain mx-auto drop-shadow-md rounded-2xl mb-4" />
+          <h1 className="text-xl font-bold text-slate-800 devanagari">
+            श्री जय सप्तश्रृंगी व्हेजिटेबल कं.
+          </h1>
+        </div>
+        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-sm border border-slate-200">
+          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="material-icons-round text-3xl">desktop_windows</span>
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-2">Desktop Recommended</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            This dashboard contains dense data tables and precise financial tools that are engineered specifically for desktop or laptop computers.
+          </p>
+          <p className="text-xs font-semibold text-red-600 bg-red-50 py-2 px-3 rounded-lg border border-red-100">
+            Please log in from a device with a larger screen (width ≥ 1024px) to continue.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
       {/* Brand Header */}
       <div className="mb-10 flex flex-row items-center justify-center gap-4 p-4 max-w-lg w-full">
         <img src={logo} alt="Company Logo" className="w-24 h-24 sm:w-32 sm:h-32 object-contain drop-shadow-md shrink-0 rounded-2xl" />
         <div className="flex flex-col text-left">
-          <h1 className="text-3xl font-black leading-tight text-slate-900 tracking-tight devanagari">
-            श्री जय सप्तश्रृंगी व्हेजिटेबल कं.<br/>
+          <h1 className="text-2xl font-black leading-tight text-slate-900 tracking-tight devanagari">
+            श्री जय सप्तश्रृंगी व्हेजिटेबल कं.<br />
             <span className="text-xl opacity-80">(Shri Jay Saptashrungi Vegetable Co.)</span>
           </h1>
         </div>
@@ -84,7 +119,7 @@ export default function Auth() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors outline-none"
-                placeholder="admin@apmc.com"
+                placeholder=""
               />
             </div>
           </div>
@@ -126,6 +161,7 @@ export default function Auth() {
         <div className="mt-8 pt-6 border-t border-slate-100 text-center">
           <p className="text-sm text-slate-500">
             {isLogin ? "खाते नाही? (Don't have an account?) " : "आधीच खाते आहे? (Already have an account?) "}
+            <br />
             <button
               type="button"
               onClick={() => {
@@ -133,7 +169,7 @@ export default function Auth() {
                 setError(null);
                 setMessage(null);
               }}
-              className="text-primary hover:text-primary-light font-semibold transition-colors cursor-pointer"
+              className="text-primary hover:text-primary-light mt-1.5 font-semibold transition-colors cursor-pointer"
             >
               {isLogin ? ' नोंदणी करा (Sign up)' : ' प्रवेश करा (Sign in)'}
             </button>
