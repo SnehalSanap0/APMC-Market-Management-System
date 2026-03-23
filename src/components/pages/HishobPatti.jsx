@@ -119,13 +119,26 @@ export default function HishobPatti() {
     };
 
     const generateReceiptNo = async (forDate) => {
-        const { count } = await supabase
-            .from('hishob_entries')
-            .select('*', { count: 'exact', head: true })
-            .eq('date', forDate);
-        const seq = ((count ?? 0) + 1).toString().padStart(3, '0');
         const datePart = forDate.replace(/-/g, '');
-        setReceiptNo(`HP-${datePart}-${seq}`);
+        const prefix = `HP-${datePart}-`;
+
+        const { data: existing } = await supabase
+            .from('hishob_entries')
+            .select('receipt_no')
+            .eq('date', forDate)
+            .like('receipt_no', `${prefix}%`)
+            .order('receipt_no', { ascending: false })
+            .limit(1);
+
+        let seq = 1;
+        if (existing && existing.length > 0) {
+            const lastSeq = parseInt(existing[0].receipt_no.replace(prefix, ''), 10);
+            if (!isNaN(lastSeq)) seq = lastSeq + 1;
+        }
+
+        const no = `${prefix}${seq.toString().padStart(3, '0')}`;
+        setReceiptNo(no);
+        return no;
     };
 
     // --- Farmer Logic ---
@@ -140,15 +153,31 @@ export default function HishobPatti() {
         setShowFarmerDropdown(false);
     };
 
+    const isMulaProduct = (productId) => {
+        const product = products.find(p => p.id === productId);
+        if (!product) return false;
+        const name = product.name.toLowerCase();
+        return name.includes('मुळा') || name.includes('mula') || name.includes('mooli');
+    };
+
     const handleAddFarmer = async () => {
         if (!newFarmerData.name) {
             toast.warning('Name is required');
             return;
         }
+        if (newFarmerData.mobile && newFarmerData.mobile.length !== 10) {
+            toast.warning('Mobile number must be 10 digits');
+            return;
+        }
+
+        const payload = {
+            ...newFarmerData,
+            mobile: newFarmerData.mobile || null,
+        };
 
         const { data, error } = await supabase
             .from('farmers')
-            .insert([newFarmerData])
+            .insert([payload])
             .select()
             .single();
 
@@ -167,11 +196,23 @@ export default function HishobPatti() {
         const newItems = [...items];
         newItems[index][field] = value;
 
-        // Auto-calc amount if rate and weight are present
-        if (field === 'rate' || field === 'weight') {
-            const weight = parseFloat(newItems[index].weight) || 0;
-            const rate = parseFloat(newItems[index].rate) || 0;
-            newItems[index].amount = (weight * rate) / 100;
+        const productId = field === 'productId' ? value : newItems[index].productId;
+        const isMula = isMulaProduct(productId);
+
+        if (isMula) {
+            // When switching to mula, clear rate
+            if (field === 'productId') {
+                newItems[index].rate = '';
+                newItems[index].amount = 0;
+            }
+            // Amount is entered directly — no auto-calculation
+        } else {
+            // Auto-calc amount from weight × rate
+            if (field === 'rate' || field === 'weight' || field === 'productId') {
+                const weight = parseFloat(newItems[index].weight) || 0;
+                const rate = parseFloat(newItems[index].rate) || 0;
+                newItems[index].amount = (weight * rate) / 100;
+            }
         }
 
         setItems(newItems);
@@ -201,11 +242,14 @@ export default function HishobPatti() {
 
         setLoading(true);
 
+        // Generate a fresh receipt number at save time to avoid stale state conflicts
+        const freshReceiptNo = await generateReceiptNo(date);
+
         // 1. Create Entry
         const { data: entry, error: entryError } = await supabase
             .from('hishob_entries')
             .insert([{
-                receipt_no: receiptNo,
+                receipt_no: freshReceiptNo,
                 date,
                 farmer_id: selectedFarmer.id,
                 gross_total: grossTotal,
@@ -226,9 +270,9 @@ export default function HishobPatti() {
             entry_id: entry.id,
             product_id: item.productId,
             merchant_id: item.merchantId,
-            weight: item.weight,
-            rate: item.rate,
-            amount: item.amount
+            weight: parseFloat(item.weight) || null,
+            rate: item.rate !== '' ? parseFloat(item.rate) : null,
+            amount: parseFloat(item.amount) || 0
         }));
 
         const { error: itemsError } = await supabase
@@ -461,7 +505,9 @@ export default function HishobPatti() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {items.map((item, idx) => (
+                                    {items.map((item, idx) => {
+                                        const isMula = isMulaProduct(item.productId);
+                                        return (
                                         <tr key={idx}>
                                             <td className="p-2">
                                                 <select
@@ -499,14 +545,25 @@ export default function HishobPatti() {
                                             <td className="p-2">
                                                 <input
                                                     type="number"
-                                                    placeholder="0.00"
+                                                    placeholder={isMula ? '—' : '0.00'}
                                                     value={item.rate}
                                                     onChange={e => updateItem(idx, 'rate', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                                    disabled={isMula}
+                                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary ${isMula ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'border-slate-300'}`}
                                                 />
                                             </td>
                                             <td className="p-2 text-right font-mono font-medium">
-                                                {item.amount.toFixed(2)}
+                                                {isMula ? (
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        value={item.amount || ''}
+                                                        onChange={e => updateItem(idx, 'amount', parseFloat(e.target.value) || 0)}
+                                                        className="w-full px-3 py-2 border border-primary rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-right font-mono font-bold bg-amber-50"
+                                                    />
+                                                ) : (
+                                                    item.amount.toFixed(2)
+                                                )}
                                             </td>
                                             <td className="p-2 text-center">
                                                 <button
@@ -518,7 +575,7 @@ export default function HishobPatti() {
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))}
+                                    );})}
                                 </tbody>
                                 <tfoot>
                                     <tr>
@@ -740,7 +797,7 @@ export default function HishobPatti() {
 
             {/* Security Key Modal */}
             {showKeyModal && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] print:hidden">
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-100 print:hidden">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center animate-in zoom-in-95 duration-200">
                         <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                             <LockKeyhole size={32} />
@@ -803,12 +860,16 @@ export default function HishobPatti() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Mobile</label>
-                                <input
-                                    type="text"
-                                    value={newFarmerData.mobile}
-                                    onChange={e => setNewFarmerData({ ...newFarmerData, mobile: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                />
+                                <div className="flex">
+                                    <span className="inline-flex items-center px-3 text-sm text-slate-500 bg-slate-50 border border-r-0 border-slate-300 rounded-l-lg">+91</span>
+                                    <input
+                                        type="tel"
+                                        placeholder="9876543210"
+                                        value={newFarmerData.mobile}
+                                        onChange={e => setNewFarmerData({ ...newFarmerData, mobile: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-r-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Village</label>
