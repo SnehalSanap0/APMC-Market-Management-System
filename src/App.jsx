@@ -14,6 +14,7 @@ import {
   AdminSettings
 } from './components/pages';
 import { useLanguage } from './lib/language';
+import HomePage from './components/home/HomePage';
 import MasterLayout from './components/pages/masters/MasterLayout';
 import {
   LayoutDashboard,
@@ -29,7 +30,8 @@ import {
   User,
   LogOut,
   Settings,
-  ListTodo
+  ListTodo,
+  ArrowRight
 } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 
@@ -80,10 +82,29 @@ function App() {
   const CurrentPageComponent = pages.find(p => p.id === currentPage)?.component || Dashboard;
   const currentPageParams = pages.find(p => p.id === currentPage);
 
+  const [showAuth, setShowAuth] = useState(false);
+
   if (authLoading) return <div className="flex items-center justify-center min-h-screen bg-slate-50"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div></div>;
 
   if (!session) {
-    return <Auth />;
+    if (showAuth) {
+      return (
+        <div className="relative">
+           <button 
+             onClick={() => setShowAuth(false)}
+             className="fixed top-4 left-4 z-[60] text-slate-500 hover:text-primary p-2 bg-white/50 backdrop-blur-md rounded-full shadow-lg border border-slate-200 cursor-pointer transition-all hover:scale-105"
+             title="Back to home"
+           >
+             <div className="flex items-center gap-2 px-2">
+               <ArrowRight size={20} className="rotate-180" />
+               <span className="text-sm font-bold uppercase tracking-widest leading-none">Back</span>
+             </div>
+           </button>
+           <Auth />
+        </div>
+      );
+    }
+    return <HomePage onLoginClick={() => setShowAuth(true)} />;
   }
 
   return (
