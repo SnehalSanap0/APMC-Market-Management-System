@@ -22,8 +22,8 @@ ChartJS.register(
 // ── helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 const today = () => new Date().toISOString().split('T')[0];
-const pastDays = (n) => {
-    const d = new Date();
+const pastDays = (refDate, n) => {
+    const d = new Date(refDate);
     d.setDate(d.getDate() - n);
     return d.toISOString().split('T')[0];
 };
@@ -88,7 +88,7 @@ function StatCard({ label, value, sub, trend, trendLabel, icon: Icon, accent }) 
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard({ onNavigate }) {
     const { t } = useLanguage();
-    const todayStr = today();
+    const [selectedDate, setSelectedDate] = useState(today());
     const [loading, setLoading] = useState(true);
 
     // ─ state ─
@@ -103,27 +103,27 @@ export default function Dashboard({ onNavigate }) {
 
     useEffect(() => {
         fetchAll();
-    }, []);
+    }, [selectedDate]);
 
     async function fetchAll() {
         setLoading(true);
-        const yesterday = pastDays(1);
-        const week = pastDays(6); // today + 6 past days = 7
+        const yesterday = pastDays(selectedDate, 1);
+        const week = pastDays(selectedDate, 6); // selected date + 6 past days = 7
 
         const results = await Promise.all([
             // today's patti totals
-            supabase.from('hishob_entries').select('id, net_amount').eq('date', todayStr),
+            supabase.from('hishob_entries').select('id, net_amount').eq('date', selectedDate),
             supabase.from('hishob_entries').select('net_amount').eq('date', yesterday),
             // today's payments
-            supabase.from('merchant_payments').select('id, amount').eq('date', todayStr),
+            supabase.from('merchant_payments').select('id, amount').eq('date', selectedDate),
             supabase.from('merchant_payments').select('amount').eq('date', yesterday),
             // weekly entries — sum by date
-            supabase.from('hishob_entries').select('date, net_amount').gte('date', week).lte('date', todayStr),
+            supabase.from('hishob_entries').select('date, net_amount').gte('date', week).lte('date', selectedDate),
             // weekly items for product breakdown this week (filter by entry date)
             supabase.from('hishob_items')
                 .select('amount, products(name), hishob_entries!inner(date)')
                 .gte('hishob_entries.date', week)
-                .lte('hishob_entries.date', todayStr),
+                .lte('hishob_entries.date', selectedDate),
             // merchant ledger for outstanding
             supabase.from('merchant_ledger').select('merchant_id, debit, credit, merchants(name)'),
             // master counts
@@ -167,7 +167,7 @@ export default function Dashboard({ onNavigate }) {
         // ── Weekly chart data ──
         const byDate = {};
         for (let i = 6; i >= 0; i--) {
-            const d = pastDays(i);
+            const d = pastDays(selectedDate, i);
             byDate[d] = 0;
         }
         (weekEntries.data || []).forEach(r => {
@@ -227,7 +227,7 @@ export default function Dashboard({ onNavigate }) {
             label: t('विक्री (Sales)', 'Sales (₹)'),
             data: weeklyData.map(d => d.amount),
             backgroundColor: weeklyData.map((d, i) =>
-                d.date === todayStr ? '#9D174D' : '#f9a8d4'
+                d.date === selectedDate ? '#9D174D' : '#f9a8d4'
             ),
             borderRadius: 6,
             borderSkipped: false,
@@ -281,22 +281,31 @@ export default function Dashboard({ onNavigate }) {
                         {new Date().getHours() < 12 ? t('शुभ सकाळ 🌅', 'Good Morning 🌅') : new Date().getHours() < 17 ? t('शुभ दुपार ☀️', 'Good Afternoon ☀️') : t('शुभ संध्या 🌙', 'Good Evening 🌙')}
                     </h1>
                     <p className="text-slate-500 text-sm mt-0.5">
-                        {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        {new Date(selectedDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                 </div>
-                <button
-                    onClick={fetchAll}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                    <span className="material-icons-round text-base">refresh</span>
-                    {t('ताजे करा', 'Refresh')}
-                </button>
+                <div className="flex items-center gap-3">
+                    <input 
+                        type="date"
+                        value={selectedDate}
+                        max={today()}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-700 bg-white focus:outline-none focus:border-primary shadow-sm"
+                    />
+                    <button
+                        onClick={fetchAll}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                    >
+                        <span className="material-icons-round text-base">refresh</span>
+                        <span className="hidden sm:inline">{t('ताजे करा', 'Refresh')}</span>
+                    </button>
+                </div>
             </div>
 
             {/* ── KPI Row ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                    label={t('आजची पट्टी विक्री', "Today's Patti Sales")}
+                    label={selectedDate === today() ? t('आजची पट्टी विक्री', "Today's Patti Sales") : t('निवडलेल्या दिवसाची विक्री', "Selected Day's Sales")}
                     value={fmt(todayStats.totalAmount)}
                     sub={`${todayStats.pattis} ${t('पट्ट्या तयार', 'pattis generated')}`}
                     trend={amtTrend}
