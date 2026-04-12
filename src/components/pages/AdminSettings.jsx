@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabaseClient';
 import { useLanguage } from '../../lib/language';
 import { useToast } from '../../lib/toast';
 import { LogOut, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../lib/AuthContext';
+import UserManagement from './UserManagement';
 
 export default function AdminSettings({ onLogout }) {
     const { t } = useLanguage();
@@ -303,6 +305,9 @@ export default function AdminSettings({ onLogout }) {
                         )}
                     </div>
                 </div>
+
+                {/* User Management Section */}
+                <UserManagement />
 
                 {/* Logout Action */}
                 <div className="flex justify-end pt-4 pb-8">

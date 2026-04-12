@@ -4,7 +4,9 @@ import { Printer } from 'lucide-react';
 import PrintHeader from '../shared/PrintHeader';
 import { printWithFilename } from '../../lib/printWithFilename';
 import { useToast } from '../../lib/toast.jsx';
-import { useLanguage } from '../../lib/language.jsx'
+import { useLanguage } from '../../lib/language.jsx';
+import { useAuth } from '../../lib/AuthContext';
+import { autoUpdateMerchantBills } from '../../lib/merchantBillUtils';
 
 // Helper function to convert numbers to Indian Rupee words
 function numberToWords(num) {
@@ -21,16 +23,21 @@ function numberToWords(num) {
         return format(Math.floor(n / 10000000)) + 'Crore ' + (n % 10000000 !== 0 ? format(n % 10000000) : '');
     };
 
-    // Handle decimals for paise (optional, rounding for now as it's common)
     const intPart = Math.floor(Math.round(num));
     return format(intPart).trim() + ' Rupees';
 }
 
+const isWithin36Hours = (createdAt) => {
+    if (!createdAt) return false;
+    return (new Date() - new Date(createdAt)) < 36 * 60 * 60 * 1000;
+};
+
 export default function JamaPavti() {
     const toast = useToast();
     const { t } = useLanguage();
+    const { isAdmin, canWrite, session } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('CREATE'); // CREATE, VIEW
+    const [activeTab, setActiveTab] = useState(canWrite ? 'CREATE' : 'VIEW'); // CREATE, VIEW
     const [merchants, setMerchants] = useState([]);
 
     // Form State
@@ -46,6 +53,19 @@ export default function JamaPavti() {
     const [viewDate, setViewDate] = useState(new Date().toISOString().split('T')[0]);
     const [viewMerchant, setViewMerchant] = useState('');
     const [payments, setPayments] = useState([]);
+
+    // Edit State
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editTarget, setEditTarget] = useState(null); // The payment object being edited
+    const [editAmount, setEditAmount] = useState('');
+    const [editMode, setEditMode] = useState('CASH');
+    const [editRemarkOriginal, setEditRemarkOriginal] = useState('');
+    const [editAdminRemark, setEditAdminRemark] = useState(''); // The mandatory audit remark
+
+    // Delete State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleteAdminRemark, setDeleteAdminRemark] = useState('');
 
     useEffect(() => {
         fetchMasters();
@@ -91,6 +111,11 @@ export default function JamaPavti() {
     };
 
     const handleSave = async () => {
+        if (!canWrite) {
+            toast.error('You do not have write permissions.');
+            return;
+        }
+
         if (!selectedMerchant || !amount) {
             toast.warning('Please select merchant and enter amount');
             return;
@@ -122,16 +147,93 @@ export default function JamaPavti() {
         setLoading(false);
     };
 
+    const openEditModal = (payment) => {
+        setEditTarget(payment);
+        setEditAmount(payment.amount);
+        setEditMode(payment.mode);
+        setEditRemarkOriginal(payment.remarks || '');
+        setEditAdminRemark('');
+        setEditModalOpen(true);
+    };
+
+    const submitEdit = async () => {
+        if (!editAdminRemark?.trim()) {
+            toast.error('Edit remark is mandatory!');
+            return;
+        }
+        setLoading(true);
+        const { error } = await supabase.from('merchant_payments').update({
+            amount: parseFloat(editAmount),
+            mode: editMode,
+            remarks: editRemarkOriginal
+        }).eq('id', editTarget.id);
+
+        if (error) {
+            toast.error('Error updating payment: ' + error.message);
+        } else {
+            await supabase.from('edit_remarks').insert([{
+                table_name: 'merchant_payments',
+                record_id: String(editTarget.id),
+                remark: editAdminRemark,
+                user_id: session?.user?.id 
+            }]);
+            
+            // Recalculate merchant balance
+            await autoUpdateMerchantBills(editTarget.date, [editTarget.merchant_id]);
+
+            toast.success('Payment updated successfully!');
+            setEditModalOpen(false);
+            fetchPayments();
+        }
+        setLoading(false);
+    };
+
+    const openDeleteModal = (payment) => {
+        setDeleteTarget(payment);
+        setDeleteAdminRemark('');
+        setDeleteModalOpen(true);
+    };
+
+    const submitDelete = async () => {
+        if (!deleteAdminRemark?.trim()) {
+            toast.error('Audit remark is mandatory for deletion!');
+            return;
+        }
+        setLoading(true);
+        const { error } = await supabase.from('merchant_payments').delete().eq('id', deleteTarget.id);
+
+        if (error) {
+            toast.error('Error deleting payment: ' + error.message);
+        } else {
+            await supabase.from('edit_remarks').insert([{
+                table_name: 'merchant_payments',
+                record_id: String(deleteTarget.id),
+                remark: `Deleted: ${deleteAdminRemark}`,
+                user_id: session?.user?.id 
+            }]);
+
+            // Recalculate merchant balance
+            await autoUpdateMerchantBills(deleteTarget.date, [deleteTarget.merchant_id]);
+
+            toast.success('Payment deleted successfully!');
+            setDeleteModalOpen(false);
+            fetchPayments();
+        }
+        setLoading(false);
+    };
+
     return (
         <div className="bg-slate-50 min-h-screen p-4 md:p-8 text-slate-900 w-full">
             {/* Tabs */}
             <div className="max-w-5xl mx-auto mb-6 flex gap-4 print:hidden">
-                <button
-                    onClick={() => setActiveTab('CREATE')}
-                    className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'CREATE' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-                >
-                    {t('नवीन जमा पावती', 'Create Payment')}
-                </button>
+                {canWrite && (
+                    <button
+                        onClick={() => setActiveTab('CREATE')}
+                        className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'CREATE' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+                    >
+                        {t('नवीन जमा पावती', 'Create Payment')}
+                    </button>
+                )}
                 <button
                     onClick={() => setActiveTab('VIEW')}
                     className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'VIEW' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
@@ -140,7 +242,7 @@ export default function JamaPavti() {
                 </button>
             </div>
 
-            {activeTab === 'CREATE' && (
+            {activeTab === 'CREATE' && canWrite && (
                 <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
                     <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center">
                         <div>
@@ -220,14 +322,16 @@ export default function JamaPavti() {
                             <button className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">
                                 Cancel
                             </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={loading}
-                                className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2"
-                            >
-                                <span className="material-icons-round">save</span>
-                                {loading ? 'Saving...' : 'Save Payment'}
-                            </button>
+                            {canWrite && (
+                                <button
+                                    onClick={handleSave}
+                                    disabled={loading}
+                                    className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center gap-2"
+                                >
+                                    <span className="material-icons-round">save</span>
+                                    {loading ? 'Saving...' : 'Save Payment'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -314,7 +418,23 @@ export default function JamaPavti() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-slate-100 p-4 border-t border-slate-200 print:hidden flex justify-end">
+                                    <div className="bg-slate-100 p-4 border-t border-slate-200 print:hidden flex justify-end gap-3">
+                                        {isAdmin && isWithin36Hours(payment.created_at) && (
+                                            <>
+                                                <button
+                                                    onClick={() => openDeleteModal(payment)}
+                                                    className="px-6 py-2 bg-red-100 text-red-700 rounded-lg font-bold hover:bg-red-200 flex justify-center gap-2 items-center shadow-sm transition-all"
+                                                >
+                                                    <span className="material-icons-round text-[20px]">delete</span> Delete
+                                                </button>
+                                                <button
+                                                    onClick={() => openEditModal(payment)}
+                                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 flex justify-center gap-2 items-center shadow-md bg-opacity-90 transition-all"
+                                                >
+                                                    <span className="material-icons-round text-[20px]">edit</span> Edit
+                                                </button>
+                                            </>
+                                        )}
                                         <button
                                             onClick={() => {
                                                 const name = (payment.merchants?.name || 'Merchant').replace(/\s+/g, '_');
@@ -327,6 +447,84 @@ export default function JamaPavti() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Modal */}
+            {editModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><span className="material-icons-round text-blue-600">edit</span> Edit Payment</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹)</label>
+                                <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Mode</label>
+                                <select value={editMode} onChange={e => setEditMode(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary">
+                                    <option value="CASH">Cash</option>
+                                    <option value="UPI">UPI / GPay / PhonePe</option>
+                                    <option value="CHEQUE">Cheque</option>
+                                    <option value="BANK">Bank Transfer (NEFT/RTGS)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Original Receipt Remark</label>
+                                <input type="text" value={editRemarkOriginal} onChange={e => setEditRemarkOriginal(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary" />
+                            </div>
+                            <div className="pt-4 border-t border-slate-100">
+                                <label className="block text-sm font-bold text-red-600 mb-1">Admin Audit Remark <span className="text-red-500">*</span></label>
+                                <input type="text" required placeholder="Why are you editing this?" value={editAdminRemark} onChange={e => setEditAdminRemark(e.target.value)} className="w-full px-3 py-2 border border-red-300 rounded-lg focus:outline-none focus:border-red-500 bg-red-50" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => setEditModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                            <button disabled={loading} onClick={submitEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold">{loading ? 'Saving...' : 'Confirm Edit'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Modal */}
+            {deleteModalOpen && deleteTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 print:hidden">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 border-t-4 border-red-600">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <span className="material-icons-round text-red-600">warning</span> Delete Jama Pavti
+                            </h3>
+                            <button onClick={() => setDeleteModalOpen(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
+                        </div>
+
+                        <div className="mb-6 p-4 bg-red-50 text-red-800 rounded-lg border border-red-100 space-y-2">
+                            <p className="font-bold">Are you sure you want to permanently delete this receipt?</p>
+                            <p className="text-sm">Receipt No: <strong>{deleteTarget.payment_no}</strong></p>
+                            <p className="text-sm">Amount: <strong>₹ {deleteTarget.amount}</strong></p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-red-600 mb-1">Admin Audit Remark <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Reason for deletion..."
+                                    value={deleteAdminRemark}
+                                    onChange={e => setDeleteAdminRemark(e.target.value)}
+                                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-white"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">This deletion will be logged in the audit trail.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setDeleteModalOpen(false)} className="px-5 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                            <button disabled={loading} onClick={submitDelete} className="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md transition-colors disabled:opacity-50">
+                                {loading ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
                         </div>
                     </div>
                 </div>

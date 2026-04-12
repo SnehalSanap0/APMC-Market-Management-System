@@ -49,8 +49,24 @@ export async function autoUpdateMerchantBills(billDate, merchantIds) {
         // 3. Adjusted gross = hishob base ± vatap transfers
         const mGrossTotal = hishobTotal + vatapReceivedTotal - vatapGivenTotal;
 
-        // Skip merchants with no activity at all
-        if (hishobTotal === 0 && vatapGivenTotal === 0 && vatapReceivedTotal === 0) continue;
+        // Fetch existing bill if any
+        const { data: existingBill } = await supabase
+            .from('merchant_bills')
+            .select('id')
+            .eq('date', billDate)
+            .eq('merchant_id', merchantId)
+            .maybeSingle();
+
+        // If there's absolutely no activity left, delete any orphaned bills & skip
+        if (hishobTotal === 0 && vatapGivenTotal === 0 && vatapReceivedTotal === 0) {
+            if (existingBill) {
+                // Manually delete dhada entries incase cascade is off
+                await supabase.from('dhada_entries').delete().eq('bill_id', existingBill.id);
+                // Delete bill
+                await supabase.from('merchant_bills').delete().eq('id', existingBill.id);
+            }
+            continue;
+        }
 
         const mFees = {
             marketFee: mGrossTotal * 0.06,
@@ -61,14 +77,6 @@ export async function autoUpdateMerchantBills(billDate, merchantIds) {
         const mTotalCharges =
             mFees.marketFee + mFees.supervision + mFees.donation + mFees.commission;
         const mNetAmount = mGrossTotal + mTotalCharges;
-
-        // 4. Check if a merchant_bill already exists for this date
-        const { data: existingBill } = await supabase
-            .from('merchant_bills')
-            .select('id')
-            .eq('date', billDate)
-            .eq('merchant_id', merchantId)
-            .maybeSingle();
 
         if (existingBill) {
             // Update existing bill and dhada entry

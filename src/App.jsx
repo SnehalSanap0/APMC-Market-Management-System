@@ -36,6 +36,7 @@ import {
   ArrowLeftRight
 } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
+import { useAuth } from './lib/AuthContext';
 
 const pages = [
   { id: 'dashboard',     nameMr: 'डॅशबोर्ड', nameEn: 'Dashboard', icon: LayoutDashboard, component: Dashboard },
@@ -54,8 +55,7 @@ const pages = [
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [session, setSession] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { session, loading: authLoading, isApproved, userProfile } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const mainRef = useRef(null);
   const { lang, setLang, t } = useLanguage();
@@ -67,27 +67,22 @@ function App() {
     }
   }, [currentPage]);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  // Session management is now handled by AuthProvider
 
   const CurrentPageComponent = pages.find(p => p.id === currentPage)?.component || Dashboard;
   const currentPageParams = pages.find(p => p.id === currentPage);
 
   const [showAuth, setShowAuth] = useState(false);
 
-  if (authLoading) return <div className="flex items-center justify-center min-h-screen bg-slate-50"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div></div>;
+  // If AuthContext is fundamentally loading, or if we have a session but haven't loaded the userProfile yet
+  if (authLoading || (session && userProfile === null)) {
+      return (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 gap-4">
+              <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
+              <p className="text-sm font-medium text-slate-500 animate-pulse">Loading Profile...</p>
+          </div>
+      );
+  }
 
   if (!session) {
     if (showAuth) {
@@ -108,6 +103,34 @@ function App() {
       );
     }
     return <HomePage onLoginClick={() => setShowAuth(true)} />;
+  }
+
+  if (!isApproved) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 text-center">
+         <div className="mb-8">
+           <img src={logo} alt="Company Logo" className="w-24 h-24 object-contain mx-auto drop-shadow-md rounded-2xl mb-4" />
+           <h1 className="text-xl font-bold text-slate-800 devanagari">
+             श्री जय सप्तश्रृंगी व्हेजिटेबल कं.
+           </h1>
+         </div>
+         <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md border border-slate-200">
+           <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+             <Database size={32} />
+           </div>
+           <h2 className="text-xl font-bold text-slate-900 mb-2">Pending Approval</h2>
+           <p className="text-sm text-slate-500 mb-6">
+             Your account has been created but is waiting for an administrator to approve it and assign your access rights.
+           </p>
+           <button
+             onClick={() => supabase.auth.signOut()}
+             className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl font-semibold transition-all"
+           >
+             Sign Out
+           </button>
+         </div>
+      </div>
+    );
   }
 
   return (
@@ -172,7 +195,10 @@ function App() {
               <div className="flex items-center gap-3 overflow-hidden">
                 <User size={36} className="text-slate-400 bg-white border border-slate-200 p-1.5 rounded-full shrink-0" />
                 <div className="overflow-hidden">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User'}</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {userProfile?.display_name || session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User'}
+                    {userProfile?.role === 'admin' && <span className="ml-2 text-[10px] bg-primary text-white px-1.5 py-0.5 rounded-md uppercase">Admin</span>}
+                  </p>
                   <p className="text-xs text-slate-500 truncate">{session.user.email}</p>
                 </div>
               </div>

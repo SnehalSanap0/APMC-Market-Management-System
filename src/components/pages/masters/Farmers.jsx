@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabaseClient';
 import { useToast } from '../../../lib/toast.jsx';
+import { useAuth } from '../../../lib/AuthContext';
 
 const fetchFarmers = async () => {
     const { data, error } = await supabase.from('farmers').select('*').order('name');
@@ -12,8 +13,9 @@ const fetchFarmers = async () => {
 export default function Farmers() {
     const queryClient = useQueryClient();
     const toast = useToast();
+    const { isAdmin, canWrite, session } = useAuth();
     const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({ name: '', mobile: '', village: '' });
+    const [formData, setFormData] = useState({ name: '', mobile: '', village: '', remark: '' });
     const [editingId, setEditingId] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
@@ -33,8 +35,19 @@ export default function Farmers() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, payload }) =>
-            supabase.from('farmers').update(payload).eq('id', id).throwOnError(),
+        mutationFn: async ({ id, payload, remark }) => {
+            const { data, error } = await supabase.from('farmers').update(payload).eq('id', id).select().single();
+            if (error) throw error;
+            if (remark) {
+                await supabase.from('edit_remarks').insert([{ 
+                    table_name: 'farmers', 
+                    record_id: String(id), 
+                    remark, 
+                    user_id: session?.user?.id 
+                }]);
+            }
+            return data;
+        },
         onSuccess: () => { invalidate(); toast.success('Farmer updated successfully!'); },
         onError: (err) => toast.error('Failed to update farmer: ' + err.message),
     });
@@ -48,19 +61,23 @@ export default function Farmers() {
     // ── HANDLERS ──────────────────────────────────────────────────────────────
     const handleSubmit = (e) => {
         e.preventDefault();
-        const { name, mobile, village } = formData;
+        const { name, mobile, village, remark } = formData;
         if (editingId) {
-            updateMutation.mutate({ id: editingId, payload: { name, mobile, village } });
+            if (!remark.trim()) {
+                toast.error('Remark is required for edits');
+                return;
+            }
+            updateMutation.mutate({ id: editingId, payload: { name, mobile, village }, remark });
         } else {
             addMutation.mutate({ name, mobile, village });
         }
         setShowModal(false);
-        setFormData({ name: '', mobile: '', village: '' });
+        setFormData({ name: '', mobile: '', village: '', remark: '' });
         setEditingId(null);
     };
 
     const handleEdit = (farmer) => {
-        setFormData({ name: farmer.name, mobile: farmer.mobile, village: farmer.village });
+        setFormData({ name: farmer.name, mobile: farmer.mobile, village: farmer.village, remark: '' });
         setEditingId(farmer.id);
         setShowModal(true);
     };
@@ -78,13 +95,15 @@ export default function Farmers() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-slate-800">Farmers Directory</h2>
-                <button
-                    onClick={() => { setShowModal(true); setEditingId(null); setFormData({ name: '', mobile: '', village: '' }); }}
-                    className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                    <span className="material-icons-round text-sm">add</span>
-                    Add Farmer
-                </button>
+                {canWrite && (
+                    <button
+                        onClick={() => { setShowModal(true); setEditingId(null); setFormData({ name: '', mobile: '', village: '', remark: '' }); }}
+                        className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                        <span className="material-icons-round text-sm">add</span>
+                        Add Farmer
+                    </button>
+                )}
             </div>
 
             {isLoading ? (
@@ -110,8 +129,12 @@ export default function Farmers() {
                                         <td className="p-4 text-slate-600">{farmer.mobile}</td>
                                         <td className="p-4 text-slate-600">{farmer.village}</td>
                                         <td className="p-4 text-right space-x-2">
-                                            <button onClick={() => handleEdit(farmer)} disabled={isMutating} className="text-blue-600 hover:bg-blue-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">edit</span></button>
-                                            <button onClick={() => handleDelete(farmer.id)} disabled={isMutating} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">delete</span></button>
+                                            {isAdmin && (
+                                                <>
+                                                    <button onClick={() => handleEdit(farmer)} disabled={isMutating} className="text-blue-600 hover:bg-blue-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">edit</span></button>
+                                                    <button onClick={() => handleDelete(farmer.id)} disabled={isMutating} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">delete</span></button>
+                                                </>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
@@ -158,6 +181,17 @@ export default function Farmers() {
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                 />
                             </div>
+                            {editingId && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Edit Remark <span className="text-red-500">*</span></label>
+                                    <input
+                                        required type="text" placeholder="Why are you editing this?"
+                                        value={formData.remark}
+                                        onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    />
+                                </div>
+                            )}
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">{editingId ? 'Update' : 'Save'}</button>

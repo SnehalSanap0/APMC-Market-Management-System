@@ -6,12 +6,19 @@ import { printWithFilename } from '../../lib/printWithFilename';
 import { useToast } from '../../lib/toast.jsx';
 import { useLanguage } from '../../lib/language';
 import { autoUpdateMerchantBills } from '../../lib/merchantBillUtils';
+import { useAuth } from '../../lib/AuthContext';
+
+const isWithin36Hours = (createdAt) => {
+    if (!createdAt) return false;
+    return (new Date() - new Date(createdAt)) < 36 * 60 * 60 * 1000;
+};
 
 export default function HishobPatti() {
     const { t } = useLanguage();
     const toast = useToast();
+    const { isAdmin, canWrite, session } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('CREATE'); // CREATE, VIEW
+    const [activeTab, setActiveTab] = useState(canWrite ? 'CREATE' : 'VIEW'); // CREATE, VIEW
 
     // Dropdown Ref
     const farmerDropdownRef = useRef(null);
@@ -53,6 +60,20 @@ export default function HishobPatti() {
     const [securityKey, setSecurityKey] = useState('');
     const [keyError, setKeyError] = useState('');
 
+    // Edit State for Item Level
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editTargetItem, setEditTargetItem] = useState(null);
+    const [editTargetPatti, setEditTargetPatti] = useState(null);
+    const [editWeight, setEditWeight] = useState('');
+    const [editRate, setEditRate] = useState('');
+    const [editAmount, setEditAmount] = useState('');
+    const [editAdminRemark, setEditAdminRemark] = useState('');
+
+    // Delete State for Patti Level
+    const [deletePattiModalOpen, setDeletePattiModalOpen] = useState(false);
+    const [deleteTargetPatti, setDeleteTargetPatti] = useState(null);
+    const [deletePattiAdminRemark, setDeletePattiAdminRemark] = useState('');
+
     useEffect(() => {
         fetchMasters();
     }, []);
@@ -87,6 +108,7 @@ export default function HishobPatti() {
                 *,
                 farmers ( name, village ),
                 hishob_items (
+                    id,
                     merchant_id,
                     weight, rate, amount,
                     products ( name )
@@ -103,6 +125,101 @@ export default function HishobPatti() {
             setPattis(filtered);
         } else {
             console.error(error);
+        }
+        setLoading(false);
+    };
+
+    const openEditModal = (item, patti) => {
+        setEditTargetItem(item);
+        setEditTargetPatti(patti);
+        setEditWeight(item.weight || '');
+        setEditRate(item.rate || '');
+        setEditAmount(item.amount || '');
+        setEditAdminRemark('');
+        setEditModalOpen(true);
+    };
+
+    const submitEdit = async () => {
+        if (!editAdminRemark?.trim()) {
+            toast.error('Edit remark is mandatory!');
+            return;
+        }
+        setLoading(true);
+        const amountDiff = parseFloat(editAmount) - parseFloat(editTargetItem.amount);
+        const newGross = parseFloat(editTargetPatti.gross_total) + amountDiff;
+        const newNet = parseFloat(editTargetPatti.net_amount) + amountDiff;
+
+        // 1. Update the Item
+        const { error: itemsError } = await supabase.from('hishob_items').update({
+            weight: parseFloat(editWeight) || null,
+            rate: parseFloat(editRate) || null,
+            amount: parseFloat(editAmount)
+        }).eq('id', editTargetItem.id);
+
+        if (itemsError) {
+            toast.error('Error updating item: ' + itemsError.message);
+        } else {
+            // 2. Update the parent Entry totals
+            await supabase.from('hishob_entries').update({
+                gross_total: newGross,
+                net_amount: newNet
+            }).eq('id', editTargetPatti.id);
+
+            // 3. Log the remark
+            await supabase.from('edit_remarks').insert([{
+                table_name: 'hishob_items',
+                record_id: String(editTargetItem.id),
+                remark: editAdminRemark,
+                user_id: session?.user?.id 
+            }]);
+
+            toast.success('Hishob Patti updated successfully!');
+            // Update merchant bills since the amount changed
+            await autoUpdateMerchantBills(editTargetPatti.date, [editTargetItem.merchant_id || editTargetPatti.merchant_id]);
+            setEditModalOpen(false);
+            fetchPattis();
+        }
+        setLoading(false);
+    };
+
+    const openDeletePattiModal = (patti) => {
+        setDeleteTargetPatti(patti);
+        setDeletePattiAdminRemark('');
+        setDeletePattiModalOpen(true);
+    };
+
+    const submitDeletePatti = async () => {
+        if (!deletePattiAdminRemark?.trim()) {
+            toast.error('Audit remark is mandatory for deletion!');
+            return;
+        }
+        setLoading(true);
+
+        const merchantIds = new Set();
+        if (deleteTargetPatti.merchant_id) merchantIds.add(deleteTargetPatti.merchant_id);
+        deleteTargetPatti.hishob_items?.forEach(item => {
+            if (item.merchant_id) merchantIds.add(item.merchant_id);
+        });
+
+        await supabase.from('hishob_items').delete().eq('hishob_id', deleteTargetPatti.id);
+        
+        const { error } = await supabase.from('hishob_entries').delete().eq('id', deleteTargetPatti.id);
+
+        if (error) {
+            toast.error('Error deleting Patti: ' + error.message);
+        } else {
+            await supabase.from('edit_remarks').insert([{
+                table_name: 'hishob_entries',
+                record_id: String(deleteTargetPatti.id),
+                remark: `Deleted: ${deletePattiAdminRemark}`,
+                user_id: session?.user?.id 
+            }]);
+
+            toast.success('Hishob Patti deleted successfully!');
+            await autoUpdateMerchantBills(deleteTargetPatti.date, Array.from(merchantIds));
+            
+            setDeletePattiModalOpen(false);
+            fetchPattis();
         }
         setLoading(false);
     };
@@ -317,12 +434,14 @@ export default function HishobPatti() {
         <div className="bg-slate-50 min-h-screen p-4 md:p-8 text-slate-900">
             {/* Tabs */}
             <div className="max-w-5xl mx-auto mb-6 flex gap-4 print:hidden">
-                <button
-                    onClick={() => setActiveTab('CREATE')}
-                    className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'CREATE' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-                >
-                    {t('नवीन नोंद', 'Create New Entry')}
-                </button>
+                {canWrite && (
+                    <button
+                        onClick={() => setActiveTab('CREATE')}
+                        className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'CREATE' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+                    >
+                        {t('नवीन नोंद', 'Create New Entry')}
+                    </button>
+                )}
                 <button
                     onClick={() => setActiveTab('VIEW')}
                     className={`px-6 py-3 rounded-lg font-bold transition-all ${activeTab === 'VIEW' ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
@@ -331,7 +450,7 @@ export default function HishobPatti() {
                 </button>
             </div>
 
-            {activeTab === 'CREATE' && (
+            {activeTab === 'CREATE' && canWrite && (
                 <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
                     {/* Header */}
                     <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center">
@@ -618,7 +737,17 @@ export default function HishobPatti() {
 
                         <div className="space-y-8 print:space-y-4">
                             {pattis.map((patti) => (
-                                <div key={patti.id} className="border-2 border-slate-800 rounded-xl overflow-hidden print:border-slate-800 print:rounded-none page-break-after">
+                                <div key={patti.id} className="border-2 border-slate-800 rounded-xl overflow-hidden print:border-slate-800 print:rounded-none page-break-after bg-white shadow-sm mb-6">
+                                    {isAdmin && isWithin36Hours(patti.created_at) && (
+                                        <div className="bg-red-50 p-2 text-right border-b-2 border-slate-800 print:hidden flex justify-end">
+                                            <button 
+                                                onClick={() => openDeletePattiModal(patti)}
+                                                className="px-4 py-1.5 bg-red-600 text-white rounded-md text-sm font-bold flex items-center gap-1 hover:bg-red-700 shadow"
+                                            >
+                                                <span className="material-icons-round text-[16px]">delete</span> Delete Full Patti
+                                            </button>
+                                        </div>
+                                    )}
                                     <PrintHeader
                                         docTitle="हिशोब पट्टी · Hishob Patti"
                                         leftInfo={[
@@ -643,8 +772,19 @@ export default function HishobPatti() {
                                         </thead>
                                         <tbody className="divide-y divide-slate-400">
                                             {patti.hishob_items?.map((item, i) => (
-                                                <tr key={i}>
-                                                    <td className="p-3 border-r-2 border-slate-800 font-medium">{item.products?.name}</td>
+                                                <tr key={i} className="group hover:bg-slate-50 transition-colors">
+                                                    <td className="p-3 border-r-2 border-slate-800 font-medium">
+                                                        {item.products?.name}
+                                                        {isAdmin && isWithin36Hours(patti.created_at) && (
+                                                            <button 
+                                                                onClick={() => openEditModal(item, patti)}
+                                                                className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 print:hidden opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                title="Edit Item"
+                                                            >
+                                                                <span className="material-icons-round text-[12px] align-middle">edit</span>
+                                                            </button>
+                                                        )}
+                                                    </td>
                                                     <td className="p-3 border-r-2 border-slate-800 text-xs text-slate-600">{(merchants.find(m => m.id === (item.merchant_id || patti.merchant_id))?.name) || '-'}</td>
                                                     <td className="p-3 border-r-2 border-slate-800 text-center">{item.weight}</td>
                                                     <td className="p-3 border-r-2 border-slate-800 text-center">{item.rate}</td>
@@ -805,6 +945,82 @@ export default function HishobPatti() {
                                     Save Farmer
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Modal for Item */}
+            {editModalOpen && editTargetItem && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <span className="material-icons-round text-blue-600">edit</span> Edit Line Item
+                        </h3>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Weight</label>
+                                    <input type="number" value={editWeight} onChange={e => setEditWeight(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Rate</label>
+                                    <input type="number" value={editRate} onChange={e => setEditRate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹)</label>
+                                <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary font-mono font-bold" />
+                            </div>
+                            <div className="pt-4 border-t border-slate-100">
+                                <label className="block text-sm font-bold text-red-600 mb-1">Admin Audit Remark <span className="text-red-500">*</span></label>
+                                <input type="text" required placeholder="Why are you editing this?" value={editAdminRemark} onChange={e => setEditAdminRemark(e.target.value)} className="w-full px-3 py-2 border border-red-300 rounded-lg focus:outline-none focus:border-red-500 bg-red-50" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => setEditModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                            <button disabled={loading} onClick={submitEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold">{loading ? 'Saving...' : 'Confirm Edit'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Patti Modal */}
+            {deletePattiModalOpen && deleteTargetPatti && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100] print:hidden">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 border-t-4 border-red-600">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <span className="material-icons-round text-red-600">warning</span> Delete Hishob Patti
+                            </h3>
+                            <button onClick={() => setDeletePattiModalOpen(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
+                        </div>
+
+                        <div className="mb-6 p-4 bg-red-50 text-red-800 rounded-lg border border-red-100 space-y-2">
+                            <p className="font-bold">Are you sure you want to permanently delete this entire Hishob Patti?</p>
+                            <p className="text-sm">Receipt: <strong>{deleteTargetPatti.receipt_no}</strong></p>
+                            <p className="text-sm">Farmer: <strong>{deleteTargetPatti.farmers?.name}</strong></p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-red-600 mb-1">Admin Audit Remark <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Reason for deletion..."
+                                    value={deletePattiAdminRemark}
+                                    onChange={e => setDeletePattiAdminRemark(e.target.value)}
+                                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setDeletePattiModalOpen(false)} className="px-5 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                            <button disabled={loading} onClick={submitDeletePatti} className="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md transition-colors disabled:opacity-50">
+                                {loading ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
                         </div>
                     </div>
                 </div>

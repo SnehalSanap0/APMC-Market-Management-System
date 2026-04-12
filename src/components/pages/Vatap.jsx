@@ -4,6 +4,12 @@ import { Plus, X, IndianRupee, Package } from 'lucide-react';
 import { useToast } from '../../lib/toast.jsx';
 import { useLanguage } from '../../lib/language';
 import { autoUpdateMerchantBills } from '../../lib/merchantBillUtils';
+import { useAuth } from '../../lib/AuthContext';
+
+const isWithin36Hours = (createdAt) => {
+    if (!createdAt) return false;
+    return (new Date() - new Date(createdAt)) < 36 * 60 * 60 * 1000;
+};
 
 // ── blank row factory ──────────────────────────────────────────────────────
 const blankRow = () => ({
@@ -19,6 +25,7 @@ const blankRow = () => ({
 export default function Vatap() {
     const { t } = useLanguage();
     const toast = useToast();
+    const { isAdmin, canWrite, session } = useAuth();
 
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [fromMerchantId, setFromMerchantId] = useState('');
@@ -27,6 +34,19 @@ export default function Vatap() {
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // Edit State
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editTarget, setEditTarget] = useState(null);
+    const [editWeight, setEditWeight] = useState('');
+    const [editRate, setEditRate] = useState('');
+    const [editAmount, setEditAmount] = useState('');
+    const [editAdminRemark, setEditAdminRemark] = useState('');
+
+    // Delete State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleteAdminRemark, setDeleteAdminRemark] = useState('');
 
     // Line-items: each row is one vatap entry (product or cash)
     const [rows, setRows] = useState([blankRow()]);
@@ -65,6 +85,79 @@ export default function Vatap() {
 
         if (!error) setEntries(data || []);
         else console.error(error);
+        setLoading(false);
+    };
+
+    const openEditModal = (entry) => {
+        setEditTarget(entry);
+        setEditWeight(entry.weight || '');
+        setEditRate(entry.rate || '');
+        setEditAmount(entry.amount || '');
+        setEditAdminRemark('');
+        setEditModalOpen(true);
+    };
+
+    const submitEdit = async () => {
+        if (!editAdminRemark?.trim()) {
+            toast.error('Edit remark is mandatory!');
+            return;
+        }
+        setLoading(true);
+        const { error } = await supabase.from('vatap_entries').update({
+            weight: editTarget.product_id ? (parseFloat(editWeight) || null) : null,
+            rate: editTarget.product_id ? (parseFloat(editRate) || null) : null,
+            amount: parseFloat(editAmount)
+        }).eq('id', editTarget.id);
+
+        if (error) {
+            toast.error('Error updating vatap: ' + error.message);
+        } else {
+            await supabase.from('edit_remarks').insert([{
+                table_name: 'vatap_entries',
+                record_id: String(editTarget.id),
+                remark: editAdminRemark,
+                user_id: session?.user?.id 
+            }]);
+            toast.success('Vatap updated successfully!');
+            // Update merchant bills since vatap amount affects balances
+            await autoUpdateMerchantBills(editTarget.date, [editTarget.from_merchant_id, editTarget.to_merchant_id]);
+            setEditModalOpen(false);
+            fetchEntries();
+        }
+        setLoading(false);
+    };
+
+    const openDeleteModal = (entry) => {
+        setDeleteTarget(entry);
+        setDeleteAdminRemark('');
+        setDeleteModalOpen(true);
+    };
+
+    const submitDelete = async () => {
+        if (!deleteAdminRemark?.trim()) {
+            toast.error('Audit remark is mandatory for deletion!');
+            return;
+        }
+        setLoading(true);
+        const { error } = await supabase.from('vatap_entries').delete().eq('id', deleteTarget.id);
+
+        if (error) {
+            toast.error('Error deleting vatap: ' + error.message);
+        } else {
+            await supabase.from('edit_remarks').insert([{
+                table_name: 'vatap_entries',
+                record_id: String(deleteTarget.id),
+                remark: `Deleted: ${deleteAdminRemark}`,
+                user_id: session?.user?.id 
+            }]);
+            
+            // Delete action means amount is effectively removed, update merchant bills!
+            await autoUpdateMerchantBills(deleteTarget.date, [deleteTarget.from_merchant_id, deleteTarget.to_merchant_id]);
+            
+            toast.success('Vatap entry deleted successfully!');
+            setDeleteModalOpen(false);
+            fetchEntries();
+        }
         setLoading(false);
     };
 
@@ -179,8 +272,9 @@ export default function Vatap() {
             <div className="max-w-6xl mx-auto space-y-6">
 
                 {/* ── Add Vatap Form ── */}
-                <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-100 p-6 border-b border-slate-200">
+                {canWrite && (
+                    <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                        <div className="bg-slate-100 p-6 border-b border-slate-200">
                         <h1 className="text-2xl font-bold text-slate-800">{t('वाटप नोंद', 'Vatap Entry')}</h1>
                         <p className="text-sm text-slate-500 mt-1">
                             {t('प्रत्येक ओळीत माल वाटप किंवा रोख वाटप निवडा', 'Each row can be a product or cash vatap independently')}
@@ -392,13 +486,25 @@ export default function Vatap() {
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* ── Entries Table ── */}
                 <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h2 className="font-semibold text-slate-700">
                             {t('या तारखेचे वाटप व्यवहार', 'Vatap Entries for Selected Date')}
                         </h2>
+                        {!canWrite && (
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-slate-600">{t('तारीख:', 'Date:')}</label>
+                                <input
+                                    type="date"
+                                    value={date}
+                                    onChange={e => setDate(e.target.value)}
+                                    className="px-3 py-1.5 border border-slate-300 rounded focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                                />
+                            </div>
+                        )}
                         {loading && (
                             <span className="text-sm text-blue-600 animate-pulse">
                                 {t('लोड होत आहे...', 'Loading...')}
@@ -434,7 +540,27 @@ export default function Vatap() {
                                         const isCash = !entry.product_id;
                                         return (
                                             <tr key={entry.id} className={`hover:bg-slate-50 ${isCash ? 'bg-amber-50/40' : ''}`}>
-                                                <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
+                                                <td className="px-4 py-3 text-slate-400">
+                                                    {idx + 1}
+                                                    {isAdmin && isWithin36Hours(entry.created_at) && (
+                                                        <>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); openEditModal(entry); }}
+                                                                className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                                                title="Edit Vatap"
+                                                            >
+                                                                <span className="material-icons-round text-sm align-middle">edit</span>
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); openDeleteModal(entry); }}
+                                                                className="ml-1 px-1.5 py-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200"
+                                                                title="Delete Vatap"
+                                                            >
+                                                                <span className="material-icons-round text-sm align-middle">delete</span>
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </td>
                                                 <td className="px-4 py-3">
                                                     {isCash ? (
                                                         <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
@@ -496,6 +622,83 @@ export default function Vatap() {
                     </div>
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {editModalOpen && editTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <span className="material-icons-round text-blue-600">edit</span> Edit Vatap Entry
+                        </h3>
+                        <div className="space-y-4">
+                            {editTarget.product_id && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Weight</label>
+                                        <input type="number" value={editWeight} onChange={e => setEditWeight(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Rate</label>
+                                        <input type="number" value={editRate} onChange={e => setEditRate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary" />
+                                    </div>
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹)</label>
+                                <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary font-mono font-bold" />
+                            </div>
+                            <div className="pt-4 border-t border-slate-100">
+                                <label className="block text-sm font-bold text-red-600 mb-1">Admin Audit Remark <span className="text-red-500">*</span></label>
+                                <input type="text" required placeholder="Why are you editing this?" value={editAdminRemark} onChange={e => setEditAdminRemark(e.target.value)} className="w-full px-3 py-2 border border-red-300 rounded-lg focus:outline-none focus:border-red-500 bg-red-50" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => setEditModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                            <button disabled={loading} onClick={submitEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold">{loading ? 'Saving...' : 'Confirm Edit'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Modal */}
+            {deleteModalOpen && deleteTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 print:hidden">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 border-t-4 border-red-600">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <span className="material-icons-round text-red-600">warning</span> Delete Vatap Entry
+                            </h3>
+                            <button onClick={() => setDeleteModalOpen(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
+                        </div>
+
+                        <div className="mb-6 p-4 bg-red-50 text-red-800 rounded-lg border border-red-100 space-y-2">
+                            <p className="font-bold">Are you sure you want to permanently delete this row entry?</p>
+                            <p className="text-sm">Amount: <strong>₹ {deleteTarget.amount}</strong></p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-red-600 mb-1">Admin Audit Remark <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Reason for deletion..."
+                                    value={deleteAdminRemark}
+                                    onChange={e => setDeleteAdminRemark(e.target.value)}
+                                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setDeleteModalOpen(false)} className="px-5 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                            <button disabled={loading} onClick={submitDelete} className="px-5 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md transition-colors disabled:opacity-50">
+                                {loading ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

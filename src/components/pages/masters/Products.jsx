@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabaseClient';
 import { useToast } from '../../../lib/toast.jsx';
+import { useAuth } from '../../../lib/AuthContext';
 
 const fetchProducts = async () => {
     const { data, error } = await supabase.from('products').select('*').order('name');
@@ -12,8 +13,9 @@ const fetchProducts = async () => {
 export default function Products() {
     const queryClient = useQueryClient();
     const toast = useToast();
+    const { isAdmin, canWrite, session } = useAuth();
     const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({ name: '', unit: '' });
+    const [formData, setFormData] = useState({ name: '', unit: '', remark: '' });
     const [editingId, setEditingId] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
@@ -33,8 +35,19 @@ export default function Products() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, payload }) =>
-            supabase.from('products').update(payload).eq('id', id).throwOnError(),
+        mutationFn: async ({ id, payload, remark }) => {
+            const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
+            if (error) throw error;
+            if (remark) {
+                await supabase.from('edit_remarks').insert([{ 
+                    table_name: 'products', 
+                    record_id: String(id), 
+                    remark, 
+                    user_id: session?.user?.id 
+                }]);
+            }
+            return data;
+        },
         onSuccess: () => { invalidate(); toast.success('Product updated successfully!'); },
         onError: (err) => toast.error('Failed to update product: ' + err.message),
     });
@@ -48,18 +61,23 @@ export default function Products() {
     // ── HANDLERS ──────────────────────────────────────────────────────────────
     const handleSubmit = (e) => {
         e.preventDefault();
+        const { remark, ...payload } = formData;
         if (editingId) {
-            updateMutation.mutate({ id: editingId, payload: formData });
+            if (!remark?.trim()) {
+                toast.error('Remark is required for edits');
+                return;
+            }
+            updateMutation.mutate({ id: editingId, payload, remark });
         } else {
-            addMutation.mutate(formData);
+            addMutation.mutate(payload);
         }
         setShowModal(false);
-        setFormData({ name: '', unit: '' });
+        setFormData({ name: '', unit: '', remark: '' });
         setEditingId(null);
     };
 
     const handleEdit = (p) => {
-        setFormData({ name: p.name, unit: p.unit });
+        setFormData({ name: p.name, unit: p.unit, remark: '' });
         setEditingId(p.id);
         setShowModal(true);
     };
@@ -77,12 +95,14 @@ export default function Products() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-slate-800">Products Directory</h2>
-                <button
-                    onClick={() => { setShowModal(true); setEditingId(null); setFormData({ name: '', unit: '' }); }}
-                    className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-                >
-                    <span className="material-icons-round text-sm">add</span> Add Product
-                </button>
+                {canWrite && (
+                    <button
+                        onClick={() => { setShowModal(true); setEditingId(null); setFormData({ name: '', unit: '', remark: '' }); }}
+                        className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                        <span className="material-icons-round text-sm">add</span> Add Product
+                    </button>
+                )}
             </div>
 
             {isLoading ? <div className="text-center py-12">Loading...</div> : (
@@ -103,8 +123,12 @@ export default function Products() {
                                     <td className="p-4 font-medium">{p.name}</td>
                                     <td className="p-4 text-slate-600">{p.unit}</td>
                                     <td className="p-4 text-right space-x-2">
-                                        <button onClick={() => handleEdit(p)} disabled={isMutating} className="text-blue-600 hover:bg-blue-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">edit</span></button>
-                                        <button onClick={() => handleDelete(p.id)} disabled={isMutating} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">delete</span></button>
+                                        {isAdmin && (
+                                            <>
+                                                <button onClick={() => handleEdit(p)} disabled={isMutating} className="text-blue-600 hover:bg-blue-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">edit</span></button>
+                                                <button onClick={() => handleDelete(p.id)} disabled={isMutating} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50"><span className="material-icons-round text-lg">delete</span></button>
+                                            </>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -127,6 +151,12 @@ export default function Products() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Unit / Category <span className="text-red-500">*</span></label>
                                 <input required placeholder="e.g. Quintal, Crate, Kg, Dozen" type="text" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                             </div>
+                            {editingId && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Edit Remark <span className="text-red-500">*</span></label>
+                                    <input required type="text" placeholder="Why are you editing this?" value={formData.remark} onChange={(e) => setFormData({ ...formData, remark: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                                </div>
+                            )}
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Save</button>
