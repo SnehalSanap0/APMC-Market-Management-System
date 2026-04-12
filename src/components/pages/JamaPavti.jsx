@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Printer } from 'lucide-react';
 import PrintHeader from '../shared/PrintHeader';
