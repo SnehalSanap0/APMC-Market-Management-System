@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Printer } from 'lucide-react';
 import PrintHeader from '../shared/PrintHeader';
-import { printWithFilename } from '../../lib/printWithFilename';
+import { printDocument } from '../../lib/printDocument';
 import { useToast } from '../../lib/toast.jsx';
 import { useLanguage } from '../../lib/language.jsx';
 import { useAuth } from '../../lib/AuthContext';
@@ -36,6 +36,7 @@ export default function JamaPavti() {
     const toast = useToast();
     const { t } = useLanguage();
     const { isAdmin, canWrite, session } = useAuth();
+    const printRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(canWrite ? 'CREATE' : 'VIEW'); // CREATE, VIEW
     const [merchants, setMerchants] = useState([]);
@@ -388,9 +389,9 @@ export default function JamaPavti() {
                             </div>
                         )}
 
-                        <div className="space-y-8 print:space-y-4">
+                        <div ref={printRef} className="space-y-8 print:space-y-4">
                             {payments.map(payment => (
-                                <div key={payment.id} className="border-2 border-slate-800 rounded-xl overflow-hidden print:border-slate-800 print:rounded-none page-break-after shadow-sm">
+                                <div key={payment.id} className="border-2 border-slate-800 rounded-xl overflow-hidden print:overflow-visible print:border-slate-800 print:rounded-none page-break-after print:break-after-page shadow-sm">
                                     <PrintHeader
                                         docTitle="जमा पावती · Jama Pavti"
                                         leftInfo={[
@@ -446,7 +447,7 @@ export default function JamaPavti() {
                                         <button
                                             onClick={() => {
                                                 const name = (payment.merchants?.name || 'Merchant').replace(/\s+/g, '_');
-                                                printWithFilename(`${payment.payment_no}_${name}`);
+                                                printDocument(printRef.current, `${payment.payment_no}_${name}`);
                                             }}
                                             className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 flex justify-center gap-2 items-center shadow-md bg-opacity-90 transition-all"
                                         >

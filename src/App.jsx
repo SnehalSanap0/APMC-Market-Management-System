@@ -134,7 +134,7 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
+    <div className="flex h-screen bg-slate-50 overflow-hidden print:overflow-visible print:h-auto font-sans text-slate-900">
 
       {/* Sidebar Navigation */}
       <aside
@@ -226,7 +226,7 @@ function App() {
       </aside>
 
       {/* Main Content Wrapper */}
-      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden print:overflow-visible print:h-auto relative">
 
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 z-10 shrink-0 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] no-print">
@@ -260,7 +260,7 @@ function App() {
         </header>
 
         {/* Main Content Scrollable Area */}
-        <main ref={mainRef} className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 custom-scrollbar relative">
+        <main ref={mainRef} className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 print:overflow-visible custom-scrollbar relative">
           <div className="h-full">
             <CurrentPageComponent onNavigate={(pageId) => setCurrentPage(pageId)} onLogout={() => setIsLogoutModalOpen(true)} />
           </div>

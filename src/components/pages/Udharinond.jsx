@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { useLanguage } from '../../lib/language';
 import { Printer } from 'lucide-react';
 import PrintHeader from '../shared/PrintHeader';
-import { printWithFilename } from '../../lib/printWithFilename';
+import { printDocument } from '../../lib/printDocument';
 
 export default function Udharinond() {
     const { t } = useLanguage();
+    const printRef = useRef(null);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -102,7 +103,7 @@ export default function Udharinond() {
 
     return (
         <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full print:p-0">
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div ref={printRef} className="max-w-7xl mx-auto space-y-6">
 
                 {/* Controls - Hidden in Print */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
@@ -119,7 +120,7 @@ export default function Udharinond() {
                         <button
                             onClick={() => {
                                 const [y, m, d] = date.split('-');
-                                printWithFilename(`Udharinond_${d}-${m}-${y}`);
+                                printDocument(printRef.current, `Udharinond_${d}-${m}-${y}`, { orientation: 'landscape' });
                             }}
                             className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-2 px-4"
                             disabled={entries.length === 0}
@@ -141,8 +142,8 @@ export default function Udharinond() {
                 </div>
 
                 {/* Table Layout */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
-                    <div className="overflow-x-auto">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none print:overflow-visible">
+                    <div className="overflow-x-auto print:overflow-visible">
                         <table className="w-full text-left text-sm whitespace-nowrap border-collapse border border-slate-300 print:text-sm font-marathi">
                             <thead className="bg-slate-100 text-slate-800 uppercase font-bold text-xs print:bg-transparent print:text-black print:text-base">
                                 <tr>

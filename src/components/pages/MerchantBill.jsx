@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { LockKeyhole, Printer } from 'lucide-react';
 import PrintHeader from '../shared/PrintHeader';
-import { printWithFilename } from '../../lib/printWithFilename';
+import { printDocument } from '../../lib/printDocument';
 import { useLanguage } from '../../lib/language';
 
 // Helper function to convert numbers to Indian Rupee words
@@ -32,6 +32,7 @@ function numberToWords(num) {
 
 export default function MerchantBill() {
     const { t } = useLanguage();
+    const printRef = useRef(null);
     const [loading, setLoading] = useState(false);
 
     // Masters
@@ -225,12 +226,12 @@ export default function MerchantBill() {
         const filename = billNo
             ? `${billNo}_${merchantName}`
             : `MB-${date.replace(/-/g, '')}_${merchantName}`;
-        setTimeout(() => printWithFilename(filename), 300);
+        setTimeout(() => printDocument(printRef.current, filename), 300);
     };
 
     return (
         <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full">
-            <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print:shadow-none print:border-none">
+        <div ref={printRef} className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 print:overflow-visible print:shadow-none print:border-none print:max-w-none">
                 {/* Screen header */}
                 <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center print:hidden">
                     <div>

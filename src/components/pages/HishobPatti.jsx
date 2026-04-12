@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { LockKeyhole, Printer } from 'lucide-react';
 import PrintHeader from '../shared/PrintHeader';
-import { printWithFilename } from '../../lib/printWithFilename';
+import { printDocument } from '../../lib/printDocument';
 import { useToast } from '../../lib/toast.jsx';
 import { useLanguage } from '../../lib/language';
 import { autoUpdateMerchantBills } from '../../lib/merchantBillUtils';
@@ -30,6 +30,8 @@ export default function HishobPatti() {
 
     // Dropdown Ref
     const farmerDropdownRef = useRef(null);
+    // Ref for the print popup — points to the pattis container in VIEW tab
+    const printRef = useRef(null);
 
     // Master Data
     const [farmers, setFarmers] = useState([]);
@@ -435,7 +437,7 @@ export default function HishobPatti() {
         const filename = pattis.length === 1
             ? `${first.receipt_no}_${farmerSlug}`
             : `${first.receipt_no}_to_${pattis[pattis.length - 1].receipt_no}_${farmerSlug}`;
-        setTimeout(() => printWithFilename(filename), 300);
+        setTimeout(() => printDocument(printRef.current, filename), 300);
     };
 
     return (
@@ -700,7 +702,7 @@ export default function HishobPatti() {
             )}
 
             {activeTab === 'VIEW' && (
-                <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden print:shadow-none print:border-none">
+                <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 print:shadow-none print:border-none print:max-w-none print:bg-white">
                     <div className="bg-slate-100 p-6 border-b border-slate-200 flex justify-between items-center print:hidden">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-800">{t('हिशोब पट्टी पहा', 'View Hishob Pattis')}</h1>
@@ -743,9 +745,9 @@ export default function HishobPatti() {
                             </div>
                         )}
 
-                        <div className="space-y-8 print:space-y-4">
+                        <div ref={printRef} className="space-y-8 print:space-y-4">
                             {pattis.map((patti) => (
-                                <div key={patti.id} className="border-2 border-slate-800 rounded-xl overflow-hidden print:border-slate-800 print:rounded-none page-break-after bg-white shadow-sm mb-6">
+                                <div key={patti.id} className="border-2 border-slate-800 rounded-xl overflow-hidden print:overflow-visible print:border-slate-800 print:rounded-none page-break-after bg-white shadow-sm mb-6 print:mb-0 print:break-after-page">
                                     {isAdmin && isWithin36Hours(patti.created_at) && (
                                         <div className="bg-red-50 p-2 text-right border-b-2 border-slate-800 print:hidden flex justify-end">
                                             <button 

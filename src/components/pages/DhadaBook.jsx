@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Printer } from 'lucide-react';
 import PrintHeader from '../shared/PrintHeader';
-import { printWithFilename } from '../../lib/printWithFilename';
+import { printDocument } from '../../lib/printDocument';
 import { useLanguage } from '../../lib/language';
 
 export default function DhadaBook() {
     const { t } = useLanguage();
+    const printRef = useRef(null);
     const [entries, setEntries] = useState([]);
     const [deposits, setDeposits] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -70,7 +71,7 @@ export default function DhadaBook() {
 
     return (
         <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full">
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div ref={printRef} className="max-w-7xl mx-auto space-y-6">
 
                 {/* Header (Hidden in Print) */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center print:hidden">
@@ -87,7 +88,7 @@ export default function DhadaBook() {
                         <button
                             onClick={() => {
                                 const [y, m, d] = date.split('-');
-                                printWithFilename(`DhadaBook_${d}-${m}-${y}`);
+                                printDocument(printRef.current, `DhadaBook_${d}-${m}-${y}`, { orientation: 'landscape' });
                             }}
                             className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-2 px-4"
                             disabled={entries.length === 0}
@@ -99,18 +100,16 @@ export default function DhadaBook() {
                 </div>
 
                 {/* Print Header (Visible only in Print) */}
-                <div className="hidden print:block mb-4">
-                    <PrintHeader
-                        docTitle="धडा बुक"
-                        rightInfo={[
-                            { label: 'Date', value: new Date(date).toLocaleDateString('en-GB') }
-                        ]}
-                    />
-                </div>
+                <PrintHeader
+                    docTitle="धडा बुक"
+                    rightInfo={[
+                        { label: 'Date', value: new Date(date).toLocaleDateString('en-GB') }
+                    ]}
+                />
 
                 {/* Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
-                    <div className="overflow-x-auto">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none print:overflow-visible">
+                    <div className="overflow-x-auto print:overflow-visible">
                         <table className="w-full text-left text-sm whitespace-nowrap border-collapse border border-slate-300 print:text-xs">
                             <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-xs print:bg-transparent print:text-black">
                                 <tr>

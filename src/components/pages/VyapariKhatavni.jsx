@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { useLanguage } from '../../lib/language';
+import { Printer } from 'lucide-react';
+import PrintHeader from '../shared/PrintHeader';
+import { printDocument } from '../../lib/printDocument';
 
 export default function VyapariKhatavni() {
     const { t } = useLanguage();
+    const printRef = useRef(null);
     const [merchants, setMerchants] = useState([]);
     const [selectedMerchant, setSelectedMerchant] = useState('');
     const [ledger, setLedger] = useState([]);
@@ -100,32 +104,53 @@ export default function VyapariKhatavni() {
 
     return (
         <div className="p-4 md:p-6 lg:p-8 text-slate-900 w-full">
-            <div className="max-w-6xl mx-auto space-y-6">
+            <div ref={printRef} className="max-w-6xl mx-auto space-y-6">
 
                 {/* Header & Controls */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800">{t('व्यापारी खतावणी', 'Merchant Ledger')}</h1>
                     </div>
-                    <div className="w-full md:w-64">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                         <select
                             value={selectedMerchant}
                             onChange={e => setSelectedMerchant(e.target.value)}
                             style={{ backgroundColor: '#ffffff', color: '#0f172a', appearance: 'auto' }}
-                            className="w-full border border-slate-300 px-3 py-2 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
+                            className="flex-1 md:w-64 border border-slate-300 px-3 py-2 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
                         >
                             <option value="">{t('व्यापारी निवडा', 'Select Merchant')}</option>
                             {merchants.map(m => (
                                 <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
                         </select>
+                        <button
+                            onClick={() => {
+                                const name = (merchants.find(m => m.id === selectedMerchant)?.name || 'Merchant').replace(/\s+/g, '_');
+                                printDocument(printRef.current, `Khatavni_${name}`, { orientation: 'landscape' });
+                            }}
+                            disabled={ledger.length === 0}
+                            className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-2 px-4 disabled:opacity-50"
+                        >
+                            <Printer size={18} />
+                            <span className="hidden sm:inline font-medium text-sm">{t('प्रिंट करा', 'Print')}</span>
+                        </button>
                     </div>
+                </div>
+
+                {/* Print Header — only visible when printing */}
+                <div className="hidden print:block">
+                    <PrintHeader
+                        docTitle="व्यापारी खतावणी · Merchant Ledger"
+                        leftInfo={[
+                            { label: 'व्यापारी / Merchant', value: merchants.find(m => m.id === selectedMerchant)?.name || '—' },
+                        ]}
+                    />
                 </div>
 
                 {selectedMerchant && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Summary Card */}
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 col-span-1">
+                        {/* Summary Card (hidden in print — info is in PrintHeader) */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 col-span-1 print:hidden">
                             <h3 className="text-slate-500 text-sm uppercase font-bold mb-2">Current Outstanding</h3>
                             <div className={`text-4xl font-bold ${currentBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                 ₹ {Math.abs(currentBalance).toFixed(2)}
@@ -136,8 +161,8 @@ export default function VyapariKhatavni() {
                         </div>
 
                         {/* Ledger Table */}
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 col-span-1 md:col-span-2 overflow-hidden">
-                            <div className="max-h-[600px] overflow-y-auto">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 col-span-1 md:col-span-2 overflow-hidden print:col-span-3 print:overflow-visible print:border-none print:shadow-none">
+                            <div className="max-h-[600px] overflow-y-auto print:max-h-none print:overflow-visible">
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-slate-50 text-slate-600 uppercase font-medium sticky top-0">
                                         <tr>

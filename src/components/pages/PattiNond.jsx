@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Printer } from 'lucide-react';
-import { printWithFilename } from '../../lib/printWithFilename';
+import { printDocument } from '../../lib/printDocument';
 import { useLanguage } from '../../lib/language';
 import PrintHeader from '../shared/PrintHeader';
 
 export default function PattiNond() {
     const { t } = useLanguage();
+    const printRef = useRef(null);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [entries, setEntries] = useState([]);
@@ -87,7 +88,7 @@ export default function PattiNond() {
 
     return (
         <div className="bg-slate-50 min-h-screen p-4 md:p-8 text-slate-900 print:bg-white print:p-0">
-            <div className="max-w-6xl mx-auto space-y-6 print:space-y-4">
+            <div ref={printRef} className="max-w-6xl mx-auto space-y-6 print:space-y-4">
 
                 {/* Header Section */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
@@ -112,7 +113,7 @@ export default function PattiNond() {
                         <button
                             onClick={() => {
                                 const [y, m, d] = date.split('-');
-                                printWithFilename(`PattiNond_${d}-${m}-${y}`);
+                                printDocument(printRef.current, `PattiNond_${d}-${m}-${y}`, { orientation: 'landscape' });
                             }}
                             className="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-2"
                             disabled={entries.length === 0}
@@ -124,14 +125,12 @@ export default function PattiNond() {
                 </div>
 
                 {/* Print Header */}
-                <div className="hidden print:block mb-4">
-                    <PrintHeader 
-                        docTitle="पट्टी नोंद (Patti Nond)" 
-                        rightInfo={[
-                            { label: 'Date', value: new Date(date).toLocaleDateString('en-GB') }
-                        ]}
-                    />
-                </div>
+                <PrintHeader 
+                    docTitle="पट्टी नोंद (Patti Nond)" 
+                    rightInfo={[
+                        { label: 'Date', value: new Date(date).toLocaleDateString('en-GB') }
+                    ]}
+                />
 
                 {/* Content Area */}
                 <div className="bg-white rounded-sm shadow-sm border border-slate-200 overflow-hidden print:shadow-none print:border-none print:overflow-visible">
