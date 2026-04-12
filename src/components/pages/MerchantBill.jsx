@@ -108,16 +108,11 @@ export default function MerchantBill() {
             return;
         }
 
-        if (!billItems || billItems.length === 0) {
-            setItems([]);
-            setVatapEntries([]);
-            setPattiCount(0);
-            setLoading(false);
-            return;
-        }
+        // We no longer exit early here, because the merchant might have ONLY vatap entries!
+        // We will fetch everything and then decide if the page is truly empty.
 
         // Count unique entries (Pattis) this merchant was part of today
-        const uniqueEntries = new Set(billItems.map(item => item.entry_id));
+        const uniqueEntries = new Set((billItems || []).map(item => item.entry_id));
         setPattiCount(uniqueEntries.size);
 
         // Fetch the stored bill_no from merchant_bills
@@ -172,10 +167,19 @@ export default function MerchantBill() {
             ...(vatapGiven || []).map(v => ({ ...v, type: 'given' })),
             ...(vatapReceived || []).map(v => ({ ...v, type: 'received' })),
         ];
+        
+        if ((!billItems || billItems.length === 0) && combinedVatap.length === 0) {
+            setItems([]);
+            setVatapEntries([]);
+            setPattiCount(0);
+            setLoading(false);
+            return;
+        }
+
         setVatapEntries(combinedVatap);
 
         // Map to local format
-        const formattedItems = billItems.map(item => ({
+        const formattedItems = (billItems || []).map(item => ({
             productId: item.product_id,
             productName: item.products?.name,
             unit: item.products?.unit,
@@ -476,7 +480,7 @@ export default function MerchantBill() {
                 <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-4 print:hidden">
                     <button
                         onClick={() => setShowKeyModal(true)}
-                        disabled={loading || items.length === 0}
+                        disabled={loading || (items.length === 0 && vatapEntries.length === 0)}
                         className="px-8 py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg shadow-slate-900/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Printer size={20} />

@@ -96,8 +96,8 @@ export async function autoUpdateMerchantBills(billDate, merchantIds) {
                 })
                 .eq('bill_id', existingBill.id);
         } else {
-            // Only create a new bill if the merchant has actual hishob pattis
-            if (hishobTotal === 0) continue;
+            // Create a new bill if the merchant has any activity (hishob OR vatap)
+            // vatapGivenTotal/vatapReceivedTotal already passed the skip check above (line 53)
 
             const { count: mbCount } = await supabase
                 .from('merchant_bills')
