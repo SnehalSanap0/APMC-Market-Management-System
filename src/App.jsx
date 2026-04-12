@@ -11,7 +11,8 @@ import {
   PattiNond,
   Auth,
   Udharinond,
-  AdminSettings
+  AdminSettings,
+  Vatap
 } from './components/pages';
 import { useLanguage } from './lib/language';
 import HomePage from './components/home/HomePage';
@@ -31,15 +32,17 @@ import {
   LogOut,
   Settings,
   ListTodo,
-  ArrowRight
+  ArrowRight,
+  ArrowLeftRight
 } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 
 const pages = [
   { id: 'dashboard',     nameMr: 'डॅशबोर्ड', nameEn: 'Dashboard', icon: LayoutDashboard, component: Dashboard },
   { id: 'masters',       nameMr: 'मास्टर्स', nameEn: 'Masters', icon: Database,        component: MasterLayout },
-  { id: 'hishob-patti',  nameMr: 'हिशोब पट्टी', nameEn: 'Hishob Patti', icon: ScrollText,      component: HishobPatti },
-  { id: 'patti-nond',    nameMr: 'पट्टी नोंद', nameEn: 'Patti Nond', icon: FileText,        component: PattiNond },
+  { id: 'hishob-patti',  nameMr: 'हिशोब पट्टी', nameEn: 'Hishob Patti', icon: ScrollText,        component: HishobPatti },
+  { id: 'vatap',         nameMr: 'वाटप',         nameEn: 'Vatap',        icon: ArrowLeftRight,    component: Vatap },
+  { id: 'patti-nond',    nameMr: 'पट्टी नोंद',   nameEn: 'Patti Nond',  icon: FileText,          component: PattiNond },
   { id: 'merchant-bill', nameMr: 'व्यापारी बिल', nameEn: 'Merchant Bill', icon: FileText,        component: MerchantBill },
   { id: 'dhada-book',    nameMr: 'धडा बुक', nameEn: 'Dhada Book', icon: BookMarked,      component: DhadaBook },
   { id: 'jama-pavti',    nameMr: 'जमा पावती', nameEn: 'Jama Pavti', icon: FileCheck,       component: JamaPavti },

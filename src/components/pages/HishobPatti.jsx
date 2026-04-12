@@ -5,6 +5,7 @@ import PrintHeader from '../shared/PrintHeader';
 import { printWithFilename } from '../../lib/printWithFilename';
 import { useToast } from '../../lib/toast.jsx';
 import { useLanguage } from '../../lib/language';
+import { autoUpdateMerchantBills } from '../../lib/merchantBillUtils';
 
 export default function HishobPatti() {
     const { t } = useLanguage();
@@ -293,96 +294,6 @@ export default function HishobPatti() {
             generateReceiptNo(date); // refresh for same date (count now +1)
         }
         setLoading(false);
-    };
-
-    const autoUpdateMerchantBills = async (billDate, merchantIds) => {
-        const uniqueMerchants = [...new Set(merchantIds.filter(Boolean))];
-        for (const merchantId of uniqueMerchants) {
-            // Fetch all items for this merchant on this date
-            const { data: allItems } = await supabase
-                .from('hishob_items')
-                .select(`
-                    amount,
-                    hishob_entries!inner(date)
-                `)
-                .eq('merchant_id', merchantId)
-                .eq('hishob_entries.date', billDate);
-
-            if (!allItems || allItems.length === 0) continue;
-
-            const mGrossTotal = allItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-
-            const mFees = {
-                marketFee: mGrossTotal * 0.06,
-                supervision: mGrossTotal * 0.01,
-                donation: mGrossTotal * 0.0005,
-                commission: 1 // flat ₹1
-            };
-            const mTotalCharges = mFees.marketFee + mFees.supervision + mFees.donation + mFees.commission;
-            const mNetAmount = mGrossTotal + mTotalCharges;
-
-            // Check if bill exists
-            const { data: existingBill } = await supabase
-                .from('merchant_bills')
-                .select('id')
-                .eq('date', billDate)
-                .eq('merchant_id', merchantId)
-                .maybeSingle();
-
-            if (existingBill) {
-                // Update existing
-                await supabase.from('merchant_bills').update({
-                    gross_total: mGrossTotal,
-                    market_fee: mFees.marketFee,
-                    supervision_fee: mFees.supervision,
-                    donation: mFees.donation,
-                    commission: mFees.commission,
-                    total_charges: mTotalCharges,
-                    net_amount: mNetAmount
-                }).eq('id', existingBill.id);
-
-                await supabase.from('dhada_entries').update({
-                    market_fee: mFees.marketFee,
-                    supervision_fee: mFees.supervision,
-                    donation: mFees.donation,
-                    commission: mFees.commission,
-                    total_income: mTotalCharges
-                }).eq('bill_id', existingBill.id);
-            } else {
-                // Insert new
-                const { count: mbCount } = await supabase
-                    .from('merchant_bills')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('date', billDate);
-                const mbSeq = ((mbCount ?? 0) + 1).toString().padStart(3, '0');
-                const newBillNo = `MB-${billDate.replace(/-/g, '')}-${mbSeq}`;
-                const { data: newBill } = await supabase.from('merchant_bills').insert([{
-                    date: billDate,
-                    merchant_id: merchantId,
-                    bill_no: newBillNo,
-                    gross_total: mGrossTotal,
-                    market_fee: mFees.marketFee,
-                    supervision_fee: mFees.supervision,
-                    donation: mFees.donation,
-                    commission: mFees.commission,
-                    total_charges: mTotalCharges,
-                    net_amount: mNetAmount
-                }]).select().single();
-
-                if (newBill) {
-                    await supabase.from('dhada_entries').insert([{
-                        date: billDate,
-                        merchant_id: merchantId,
-                        bill_id: newBill.id,
-                        market_fee: mFees.marketFee,
-                        supervision_fee: mFees.supervision,
-                        donation: mFees.donation,
-                        commission: mFees.commission,
-                        total_income: mTotalCharges
-                    }]);
-                }
-            }
-        }
     };
 
     const handleDownload = () => {

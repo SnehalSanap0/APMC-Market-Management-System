@@ -47,6 +47,7 @@ export default function MerchantBill() {
 
     // Fetched Data
     const [items, setItems] = useState([]);
+    const [vatapEntries, setVatapEntries] = useState([]);
     const [pattiCount, setPattiCount] = useState(0);
     const [billNo, setBillNo] = useState('');
     const [ledgerStats, setLedgerStats] = useState({ magilBaki: 0, jama: 0 });
@@ -70,6 +71,7 @@ export default function MerchantBill() {
             fetchDailyTransactions();
         } else {
             setItems([]);
+            setVatapEntries([]);
             setPattiCount(0);
             setLedgerStats({ magilBaki: 0, jama: 0 });
         }
@@ -108,6 +110,7 @@ export default function MerchantBill() {
 
         if (!billItems || billItems.length === 0) {
             setItems([]);
+            setVatapEntries([]);
             setPattiCount(0);
             setLoading(false);
             return;
@@ -151,6 +154,26 @@ export default function MerchantBill() {
         const { data: sData } = await supabase.from('company_settings').select('*').single();
         if (sData) setSettings(sData);
 
+        // Fetch vatap entries for this merchant on this date (given or received)
+        const [{ data: vatapGiven }, { data: vatapReceived }] = await Promise.all([
+            supabase
+                .from('vatap_entries')
+                .select(`id, amount, weight, rate, from_merchant_id, to_merchant_id, products(name, unit), to_merchant:merchants!vatap_entries_to_merchant_id_fkey(name)`)
+                .eq('from_merchant_id', selectedMerchant)
+                .eq('date', date),
+            supabase
+                .from('vatap_entries')
+                .select(`id, amount, weight, rate, from_merchant_id, to_merchant_id, products(name, unit), from_merchant:merchants!vatap_entries_from_merchant_id_fkey(name)`)
+                .eq('to_merchant_id', selectedMerchant)
+                .eq('date', date),
+        ]);
+
+        const combinedVatap = [
+            ...(vatapGiven || []).map(v => ({ ...v, type: 'given' })),
+            ...(vatapReceived || []).map(v => ({ ...v, type: 'received' })),
+        ];
+        setVatapEntries(combinedVatap);
+
         // Map to local format
         const formattedItems = billItems.map(item => ({
             productId: item.product_id,
@@ -165,8 +188,13 @@ export default function MerchantBill() {
         setLoading(false);
     };
 
-    // Calculations
-    const grossTotal = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    // Calculations — include vatap adjustments in gross total
+    const hishobTotal = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    const vatapAdjustment = vatapEntries.reduce((sum, v) => {
+        const amt = parseFloat(v.amount) || 0;
+        return v.type === 'received' ? sum + amt : sum - amt;
+    }, 0);
+    const grossTotal = hishobTotal + vatapAdjustment;
 
     const fees = {
         marketFee: grossTotal * RATES.MARKET_FEE,
@@ -299,7 +327,7 @@ export default function MerchantBill() {
                                     <tr>
                                         <td colSpan="3" className="p-3 text-right text-slate-600">{t('एकूण खरेदी', 'Total Business')}</td>
                                         <td className="p-3 text-right text-slate-900 border-t border-slate-300">
-                                            ₹ {grossTotal.toFixed(2)}
+                                            ₹ {hishobTotal.toFixed(2)}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -307,8 +335,64 @@ export default function MerchantBill() {
                         </table>
                     </div>
 
+                    {/* Vatap Section */}
+                    {vatapEntries.length > 0 && (
+                        <div className="border border-amber-200 rounded-lg overflow-hidden">
+                            <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
+                                <h3 className="font-semibold text-amber-800 text-sm uppercase tracking-wide">
+                                    {t('वाटप (माल वितरण)', 'Vatap (Goods Distribution)')}
+                                </h3>
+                            </div>
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-amber-50/50 text-slate-500 uppercase text-xs">
+                                    <tr>
+                                        <th className="px-4 py-2 border-b border-amber-100">{t('प्रकार', 'Type')}</th>
+                                        <th className="px-4 py-2 border-b border-amber-100">{t('व्यापारी', 'Merchant')}</th>
+                                        <th className="px-4 py-2 border-b border-amber-100">{t('माल', 'Product')}</th>
+                                        <th className="px-4 py-2 border-b border-amber-100 text-center">{t('वजन', 'Wt')}</th>
+                                        <th className="px-4 py-2 border-b border-amber-100 text-center">{t('दर', 'Rate')}</th>
+                                        <th className="px-4 py-2 border-b border-amber-100 text-right">{t('रक्कम', 'Amount')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-amber-50">
+                                    {vatapEntries.map((v, idx) => (
+                                        <tr key={v.id || idx} className={v.type === 'received' ? 'bg-green-50/40' : 'bg-red-50/40'}>
+                                            <td className="px-4 py-2">
+                                                {v.type === 'received' ? (
+                                                    <span className="inline-block px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-semibold">
+                                                        {t('मिळाले', 'Received')}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-semibold">
+                                                        {t('दिले', 'Given')}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2 font-medium text-slate-700">
+                                                {v.type === 'received'
+                                                    ? (v.from_merchant?.name || '—')
+                                                    : (v.to_merchant?.name || '—')}
+                                            </td>
+                                            <td className="px-4 py-2 text-slate-600">
+                                                {v.products?.name}
+                                                {v.products?.unit && (
+                                                    <span className="text-slate-400 text-xs ml-1">({v.products.unit})</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2 text-center text-slate-500">{v.weight ?? '—'}</td>
+                                            <td className="px-4 py-2 text-center text-slate-500">{v.rate ?? '—'}</td>
+                                            <td className={`px-4 py-2 text-right font-mono font-bold ${v.type === 'received' ? 'text-green-700' : 'text-red-700'}`}>
+                                                {v.type === 'received' ? '+' : '−'} ₹ {parseFloat(v.amount).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
                     {/* Fees Calculation */}
-                    {items.length > 0 && (
+                    {(items.length > 0 || vatapEntries.length > 0) && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-200 pt-8">
                             <div>
                                 <h3 className="font-semibold text-slate-800 mb-4">{t('लागू आकार', 'Applied Charges')}</h3>
@@ -338,9 +422,21 @@ export default function MerchantBill() {
 
                             <div className="bg-slate-50 p-6 rounded-xl space-y-3">
                                 <div className="flex justify-between text-slate-600">
-                                    <span>{t('एकूण रक्कम', 'Gross Total')}</span>
-                                    <span>₹ {grossTotal.toFixed(2)}</span>
+                                    <span>{t('एकूण खरेदी', 'Total Business')}</span>
+                                    <span>₹ {hishobTotal.toFixed(2)}</span>
                                 </div>
+                                {vatapAdjustment !== 0 && (
+                                    <div className={`flex justify-between font-medium ${vatapAdjustment > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        <span>{t('वाटप समायोजन', 'Vatap Adjustment')}</span>
+                                        <span>{vatapAdjustment > 0 ? '+' : '−'} ₹ {Math.abs(vatapAdjustment).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {vatapAdjustment !== 0 && (
+                                    <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-2">
+                                        <span>{t('समायोजित एकूण', 'Adjusted Gross')}</span>
+                                        <span>₹ {grossTotal.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-blue-600">
                                     <span>{t('एकूण खर्च', 'Add: Charges')}</span>
                                     <span>+ ₹ {totalCharges.toFixed(2)}</span>

@@ -9,24 +9,12 @@ export default function VyapariKhatavni() {
     const [ledger, setLedger] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        fetchMasters();
-    }, []);
-
-    useEffect(() => {
-        if (selectedMerchant) {
-            fetchLedger();
-        } else {
-            setLedger([]);
-        }
-    }, [selectedMerchant]);
-
-    const fetchMasters = async () => {
+    async function fetchMasters() {
         const { data } = await supabase.from('merchants').select('*').order('name');
         if (data) setMerchants(data);
-    };
+    }
 
-    const fetchLedger = async () => {
+    async function fetchLedger() {
         setLoading(true);
         // Fetch all ledger entries for this merchant ordered by date
         const { data, error } = await supabase
@@ -39,18 +27,73 @@ export default function VyapariKhatavni() {
         if (error) {
             console.error('Error fetching ledger:', error);
         } else if (data) {
+            // Group by Date
+            const groupedByDate = {};
+            data.forEach((entry) => {
+                // Handle different date formats gracefully
+                const dateObj = new Date(entry.date);
+                const dateKey = !isNaN(dateObj) ? dateObj.toISOString().split('T')[0] : entry.date;
+
+                if (!groupedByDate[dateKey]) {
+                    groupedByDate[dateKey] = {
+                        id: dateKey,
+                        date: entry.date,
+                        totalDebit: 0,
+                        totalCredit: 0,
+                        references: new Set()
+                    };
+                }
+                groupedByDate[dateKey].totalDebit += parseFloat(entry.debit) || 0;
+                groupedByDate[dateKey].totalCredit += parseFloat(entry.credit) || 0;
+                if (entry.reference_type) {
+                    groupedByDate[dateKey].references.add(entry.reference_type);
+                }
+            });
+
             // Calculate Running Balance
             let runningBalance = 0;
-            const processedData = data.map(entry => {
-                const debit = parseFloat(entry.debit) || 0;
-                const credit = parseFloat(entry.credit) || 0;
-                runningBalance = runningBalance + debit - credit;
-                return { ...entry, runningBalance };
-            });
+            const processedData = Object.values(groupedByDate)
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .map(group => {
+                    runningBalance = runningBalance + group.totalDebit - group.totalCredit;
+
+                    let refTypeDesc = 'Transaction';
+                    if (group.references.has('BILL') && group.references.has('PAYMENT')) {
+                        refTypeDesc = 'Bill & Payment';
+                    } else if (group.references.has('BILL')) {
+                        refTypeDesc = 'Bill';
+                    } else if (group.references.has('PAYMENT')) {
+                        refTypeDesc = 'Payment';
+                    } else if (group.references.size > 0) {
+                        refTypeDesc = Array.from(group.references).join(', ');
+                    }
+
+                    return {
+                        id: group.id,
+                        date: group.date,
+                        debit: group.totalDebit,
+                        credit: group.totalCredit,
+                        runningBalance,
+                        description: refTypeDesc,
+                        refsStr: Array.from(group.references).join(', ')
+                    };
+                });
             setLedger(processedData);
         }
         setLoading(false);
-    };
+    }
+
+    useEffect(() => {
+        fetchMasters();
+    }, []);
+
+    useEffect(() => {
+        if (selectedMerchant) {
+            fetchLedger();
+        } else {
+            setLedger([]);
+        }
+    }, [selectedMerchant]);
 
     // Current Balance is the balance of the last entry
     const currentBalance = ledger.length > 0 ? ledger[ledger.length - 1].runningBalance : 0;
@@ -68,7 +111,8 @@ export default function VyapariKhatavni() {
                         <select
                             value={selectedMerchant}
                             onChange={e => setSelectedMerchant(e.target.value)}
-                            className="w-full border border-slate-300 bg-white px-3 py-2 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary font-medium focus:outline-none"
+                            style={{ backgroundColor: '#ffffff', color: '#0f172a', appearance: 'auto' }}
+                            className="w-full border border-slate-300 px-3 py-2 rounded-lg focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
                         >
                             <option value="">{t('व्यापारी निवडा', 'Select Merchant')}</option>
                             {merchants.map(m => (
@@ -114,8 +158,8 @@ export default function VyapariKhatavni() {
                                                 <tr key={row.id} className="hover:bg-slate-50">
                                                     <td className="p-4 whitespace-nowrap">{new Date(row.date).toLocaleDateString()}</td>
                                                     <td className="p-4 font-medium text-slate-700">
-                                                        {row.reference_type === 'BILL' ? `Bill` : `Payment`}
-                                                        <span className="text-xs text-slate-400 block font-normal">Ref: {row.reference_type}</span>
+                                                        {row.description}
+                                                        {row.refsStr && <span className="text-xs text-slate-400 block font-normal">Refs: {row.refsStr}</span>}
                                                     </td>
                                                     <td className="p-4 text-right font-mono text-slate-600">
                                                         {row.debit > 0 ? `₹ ${row.debit.toFixed(2)}` : '-'}

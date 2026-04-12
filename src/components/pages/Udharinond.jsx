@@ -20,44 +20,57 @@ export default function Udharinond() {
     const fetchUdharinond = async () => {
         setLoading(true);
 
-        // Fetch all merchants
-        const mRes = await supabase.from('merchants').select('id, name').order('name');
+        // Fetch all merchants (with opening_balance)
+        const mRes = await supabase.from('merchants').select('id, name, opening_balance').order('name');
 
-        // Fetch ledger up to this date
-        const lRes = await supabase
-            .from('merchant_ledger')
-            .select('*')
+        // Fetch all merchant_bills up to this date (source of debit amounts)
+        const billsRes = await supabase
+            .from('merchant_bills')
+            .select('merchant_id, date, net_amount')
             .lte('date', date);
 
-        if (mRes.data && lRes.data) {
+        // Fetch all merchant_payments up to this date (source of credit amounts)
+        const paymentsRes = await supabase
+            .from('merchant_payments')
+            .select('merchant_id, date, amount')
+            .lte('date', date);
+
+        if (mRes.data && billsRes.data && paymentsRes.data) {
             const result = [];
             for (const m of mRes.data) {
-                // Filter ledger for this merchant
-                const mLedger = lRes.data.filter(l => l.merchant_id === m.id);
+                const openingBalance = parseFloat(m.opening_balance) || 0;
 
-                // Magil Baki (Previous Balance) = Sum(debit) - Sum(credit) where date < selected date
-                let magilBaki = 0;
-                // Chalu Kalam (Current Debit) = Sum(debit) where date == selected date
+                // Bills for this merchant
+                const mBills = billsRes.data.filter(b => b.merchant_id === m.id);
+                // Payments for this merchant
+                const mPayments = paymentsRes.data.filter(p => p.merchant_id === m.id);
+
+                // Magil Baki = opening balance + sum of bills before selected date - sum of payments before selected date
+                let magilBaki = openingBalance;
+                mBills.forEach(b => {
+                    if (b.date < date) magilBaki += parseFloat(b.net_amount) || 0;
+                });
+                mPayments.forEach(p => {
+                    if (p.date < date) magilBaki -= parseFloat(p.amount) || 0;
+                });
+
+                // Chalu Kalam = bill net_amount on selected date
                 let chaluKalam = 0;
-                // Jama (Current Credit) = Sum(credit) where date == selected date
-                let jama = 0;
+                mBills.forEach(b => {
+                    if (b.date === date) chaluKalam += parseFloat(b.net_amount) || 0;
+                });
 
-                mLedger.forEach(l => {
-                    const de = parseFloat(l.debit) || 0;
-                    const cr = parseFloat(l.credit) || 0;
-                    if (l.date < date) {
-                        magilBaki += de - cr;
-                    } else if (l.date === date) {
-                        chaluKalam += de;
-                        jama += cr;
-                    }
+                // Jama = payments on selected date
+                let jama = 0;
+                mPayments.forEach(p => {
+                    if (p.date === date) jama += parseFloat(p.amount) || 0;
                 });
 
                 const ekunYene = magilBaki + chaluKalam;
                 const nakkiBaki = ekunYene - jama;
 
-                // Only show if there's *any* activity or balance
-                if (magilBaki > 0 || chaluKalam > 0 || jama > 0 || nakkiBaki > 0) {
+                // Only show if there's any activity or balance
+                if (magilBaki !== 0 || chaluKalam > 0 || jama > 0 || nakkiBaki !== 0) {
                     result.push({
                         id: m.id,
                         name: m.name,

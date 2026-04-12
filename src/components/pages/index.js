@@ -9,3 +9,4 @@ export { default as PattiNond } from './PattiNond';
 export { default as Auth } from './Auth';
 export { default as Udharinond } from './Udharinond';
 export { default as AdminSettings } from './AdminSettings';
+export { default as Vatap } from './Vatap';
