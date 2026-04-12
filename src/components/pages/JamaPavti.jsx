@@ -40,6 +40,14 @@ export default function JamaPavti() {
     const [activeTab, setActiveTab] = useState(canWrite ? 'CREATE' : 'VIEW'); // CREATE, VIEW
     const [merchants, setMerchants] = useState([]);
 
+    useEffect(() => {
+        if (canWrite && activeTab === 'VIEW') {
+            setActiveTab('CREATE');
+        } else if (!canWrite && activeTab === 'CREATE') {
+            setActiveTab('VIEW');
+        }
+    }, [canWrite]);
+
     // Form State
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [paymentNo, setPaymentNo] = useState('');

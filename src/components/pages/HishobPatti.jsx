@@ -20,6 +20,14 @@ export default function HishobPatti() {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(canWrite ? 'CREATE' : 'VIEW'); // CREATE, VIEW
 
+    useEffect(() => {
+        if (canWrite && activeTab === 'VIEW') {
+            setActiveTab('CREATE');
+        } else if (!canWrite && activeTab === 'CREATE') {
+            setActiveTab('VIEW');
+        }
+    }, [canWrite]);
+
     // Dropdown Ref
     const farmerDropdownRef = useRef(null);
 
