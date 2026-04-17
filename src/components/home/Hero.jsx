@@ -36,12 +36,13 @@ export default function Hero({ onLoginClick }) {
                 Log In Now
                 <ArrowRight size={20} />
               </button>
-              <a
-                href="#features"
+              <button
+                onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-8 py-4 rounded-xl font-bold text-lg border-2 border-slate-200 transition-all cursor-pointer"
               >
                 Explore Features
-              </a>
+              </button>
+
             </div>
           </div>
 

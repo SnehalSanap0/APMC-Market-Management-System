@@ -14,6 +14,18 @@
 
 /* Base Styles */
 @layer base {
+
+    html,
+    body {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+        display: none;
+    }
+
     body {
         font-family: var(--font-sans);
         background-color: var(--color-background);
@@ -83,7 +95,8 @@
         box-sizing: border-box !important;
     }
 
-    html, body {
+    html,
+    body {
         width: 100% !important;
         height: auto !important;
         background: white !important;
@@ -100,9 +113,9 @@
 
     /* --- Unlock any overflow clipping that would crop content --- */
     /* Every ancestor of printable content must not clip overflow */
-    body > *,
+    body>*,
     #root,
-    #root > *,
+    #root>*,
     main,
     [class*="overflow-hidden"],
     [class*="overflow-x-auto"],
@@ -123,58 +136,117 @@
     }
 
     /* --- Page break utilities (replaces broken Tailwind class names) --- */
-    .page-break-before { break-before: page !important; }
-    .page-break-after  { break-after: page !important; }
+    .page-break-before {
+        break-before: page !important;
+    }
+
+    .page-break-after {
+        break-after: page !important;
+    }
 
     /* Prevent single patti/receipt cards from splitting across pages */
     .page-break-inside-avoid,
     [class*="border-2"][class*="border-slate-800"],
-    table { break-inside: avoid !important; }
+    table {
+        break-inside: avoid !important;
+    }
 
     /* Table rows should not be orphaned */
-    tr { break-inside: avoid !important; }
+    tr {
+        break-inside: avoid !important;
+    }
 
     /* thead repeats on every page (browser-native feature) */
-    thead { display: table-header-group !important; }
-    tfoot { display: table-footer-group !important; }
+    thead {
+        display: table-header-group !important;
+    }
+
+    tfoot {
+        display: table-footer-group !important;
+    }
 
     /* --- Typography adjustments for print density --- */
-    .print\:text-xs  { font-size: 8pt !important; }
-    .print\:text-sm  { font-size: 9pt !important; }
-    .print\:text-base { font-size: 10pt !important; }
+    .print\:text-xs {
+        font-size: 8pt !important;
+    }
+
+    .print\:text-sm {
+        font-size: 9pt !important;
+    }
+
+    .print\:text-base {
+        font-size: 10pt !important;
+    }
 
     /* --- Table print optimizations --- */
     table {
         width: 100% !important;
         border-collapse: collapse !important;
     }
-    th, td {
+
+    th,
+    td {
         padding: 4px 6px !important;
     }
 
     /* --- Shadows, rounded corners — remove for clean print --- */
-    [class*="shadow"]  { box-shadow: none !important; }
-    [class*="rounded"] { border-radius: 0 !important; }
+    [class*="shadow"] {
+        box-shadow: none !important;
+    }
+
+    [class*="rounded"] {
+        border-radius: 0 !important;
+    }
 
     /* --- Ensure the print layout fills the page width --- */
-    .print\:shadow-none { box-shadow: none !important; }
-    .print\:border-none { border: none !important; }
-    .print\:p-0        { padding: 0 !important; }
-    .print\:bg-white   { background: #fff !important; }
+    .print\:shadow-none {
+        box-shadow: none !important;
+    }
+
+    .print\:border-none {
+        border: none !important;
+    }
+
+    .print\:p-0 {
+        padding: 0 !important;
+    }
+
+    .print\:bg-white {
+        background: #fff !important;
+    }
 }
 
 /* Toast animations */
 @keyframes slideInRight {
-    from { opacity: 0; transform: translateX(110%); }
-    to   { opacity: 1; transform: translateX(0); }
+    from {
+        opacity: 0;
+        transform: translateX(110%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 @keyframes slideOutRight {
-    from { opacity: 1; transform: translateX(0); }
-    to   { opacity: 0; transform: translateX(110%); }
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(110%);
+    }
 }
 
 @keyframes shrinkWidth {
-    from { width: 100%; }
-    to   { width: 0%; }
-}
+    from {
+        width: 100%;
+    }
+
+    to {
+        width: 0%;
+    }
+}

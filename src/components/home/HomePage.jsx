@@ -17,7 +17,7 @@ import Footer from './Footer';
 export default function HomePage({ onLoginClick }) {
   return (
     <div className="flex flex-col min-h-screen font-sans bg-slate-50 relative selection:bg-primary/20 selection:text-primary">
-      
+
       {/* Background Decorative Gradient */}
       <div className="fixed top-0 left-0 right-0 -z-10 h-screen w-screen overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 blur-[120px] rounded-full translate-x-1/4 -translate-y-1/4"></div>
