@@ -9,6 +9,7 @@ import UserManagement from './UserManagement';
 export default function AdminSettings({ onLogout }) {
     const { t } = useLanguage();
     const toast = useToast();
+    const { isAdmin, canWrite, session, userProfile, refreshProfile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [userEmail, setUserEmail] = useState('');
     const [displayName, setDisplayName] = useState('');
@@ -27,16 +28,16 @@ export default function AdminSettings({ onLogout }) {
 
     useEffect(() => {
         fetchSettings();
-        fetchUser();
     }, []);
 
-    const fetchUser = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user) {
+    useEffect(() => {
+        if (session?.user) {
             setUserEmail(session.user.email);
-            setDisplayName(session.user.user_metadata?.display_name || '');
+            setDisplayName(userProfile?.display_name || session.user.user_metadata?.display_name || '');
         }
-    };
+    }, [session, userProfile]);
+
+
 
     const fetchSettings = async () => {
         setLoading(true);
@@ -122,14 +123,26 @@ export default function AdminSettings({ onLogout }) {
     };
 
     const handleUpdateName = async () => {
+        if (!session?.user?.id) return;
         setLoading(true);
-        const { error } = await supabase.auth.updateUser({
+        
+        // 1. Update Auth Metadata
+        const { error: authErr } = await supabase.auth.updateUser({
             data: { display_name: displayName }
         });
-        if (error) {
+
+        // 2. Update user_profiles table
+        const { error: profileErr } = await supabase
+            .from('user_profiles')
+            .update({ display_name: displayName })
+            .eq('id', session.user.id);
+
+        if (authErr || profileErr) {
             toast.error(t('नाव बदलताना त्रुटी', 'Error changing name'));
+            console.error({ authErr, profileErr });
         } else {
-            toast.success(t('नाव यशस्वीरित्या जतन केले', 'Name changed successfully! Refresh to see changes.'));
+            if (refreshProfile) refreshProfile();
+            toast.success(t('नाव यशस्वीरित्या जतन केले', 'Name changed successfully!'));
         }
         setLoading(false);
     };
