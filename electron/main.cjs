@@ -8,6 +8,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'Shri Jay Saptashrungi Vegetable Co.',
+    icon: path.join(__dirname, '../src/assets/logo.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

@@ -76,6 +76,10 @@
     .custom-scrollbar:hover::-webkit-scrollbar-thumb {
         background: #94a3b8;
     }
+
+    .break-after-avoid {
+        break-after: avoid;
+    }
 }
 
 /* =====================================================
@@ -146,9 +150,12 @@
 
     /* Prevent single patti/receipt cards from splitting across pages */
     .page-break-inside-avoid,
-    [class*="border-2"][class*="border-slate-800"],
-    table {
+    div[class*="border-2"][class*="border-slate-800"] {
         break-inside: avoid !important;
+    }
+
+    table {
+        break-inside: auto !important;
     }
 
     /* Table rows should not be orphaned */

@@ -31,6 +31,19 @@ export default function VyapariKhatavni() {
         if (error) {
             console.error('Error fetching ledger:', error);
         } else if (data) {
+            // Fetch payment modes to match with ledger entries
+            const { data: payments } = await supabase
+                .from('merchant_payments')
+                .select('id, mode')
+                .eq('merchant_id', selectedMerchant);
+
+            const paymentModesMap = {};
+            if (payments) {
+                payments.forEach(p => {
+                    paymentModesMap[p.id] = p.mode;
+                });
+            }
+
             // Group by Date
             const groupedByDate = {};
             data.forEach((entry) => {
@@ -44,13 +57,21 @@ export default function VyapariKhatavni() {
                         date: entry.date,
                         totalDebit: 0,
                         totalCredit: 0,
-                        references: new Set()
+                        references: new Set(),
+                        modes: new Set()
                     };
                 }
                 groupedByDate[dateKey].totalDebit += parseFloat(entry.debit) || 0;
                 groupedByDate[dateKey].totalCredit += parseFloat(entry.credit) || 0;
                 if (entry.reference_type) {
                     groupedByDate[dateKey].references.add(entry.reference_type);
+                }
+                // If it's a payment, try to get the mode
+                if (entry.reference_type === 'PAYMENT' && entry.reference_id && paymentModesMap[entry.reference_id]) {
+                    groupedByDate[dateKey].modes.add(paymentModesMap[entry.reference_id]);
+                } else if (entry.mode) {
+                    // Fallback if mode is already in entry
+                    groupedByDate[dateKey].modes.add(entry.mode);
                 }
             });
 
@@ -62,14 +83,16 @@ export default function VyapariKhatavni() {
                     runningBalance = runningBalance + group.totalDebit - group.totalCredit;
 
                     let refTypeDesc = 'Transaction';
+                    const modeStr = group.modes.size > 0 ? ` (${Array.from(group.modes).join(', ')})` : '';
+
                     if (group.references.has('BILL') && group.references.has('PAYMENT')) {
-                        refTypeDesc = 'Bill & Payment';
+                        refTypeDesc = `Bill & Payment${modeStr}`;
                     } else if (group.references.has('BILL')) {
                         refTypeDesc = 'Bill';
                     } else if (group.references.has('PAYMENT')) {
-                        refTypeDesc = 'Payment';
+                        refTypeDesc = `Payment${modeStr}`;
                     } else if (group.references.size > 0) {
-                        refTypeDesc = Array.from(group.references).join(', ');
+                        refTypeDesc = Array.from(group.references).join(', ') + modeStr;
                     }
 
                     return {
@@ -163,33 +186,33 @@ export default function VyapariKhatavni() {
                         {/* Ledger Table */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 col-span-1 md:col-span-2 overflow-hidden print:col-span-3 print:overflow-visible print:border-none print:shadow-none">
                             <div className="max-h-[600px] overflow-y-auto print:max-h-none print:overflow-visible">
-                                <table className="w-full text-left text-sm">
+                                <table className="w-full text-left text-sm border-collapse">
                                     <thead className="bg-slate-50 text-slate-600 uppercase font-medium sticky top-0">
-                                        <tr>
-                                            <th className="p-4 border-b">Date</th>
-                                            <th className="p-4 border-b">Description</th>
-                                            <th className="p-4 border-b text-right">Debit (Bill)</th>
-                                            <th className="p-4 border-b text-right">Credit (Paid)</th>
-                                            <th className="p-4 border-b text-right">Balance</th>
+                                        <tr className="border-b-2 border-slate-800">
+                                            <th className="p-4 border-r-2 border-slate-800">Date</th>
+                                            <th className="p-4 border-r-2 border-slate-800">Description</th>
+                                            <th className="p-4 border-r-2 border-slate-800 text-right">Debit (Bill)</th>
+                                            <th className="p-4 border-r-2 border-slate-800 text-right">Credit (Paid)</th>
+                                            <th className="p-4 text-right">Balance</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-slate-300">
                                         {loading ? (
                                             <tr><td colSpan="5" className="p-8 text-center text-slate-400">Loading ledger...</td></tr>
                                         ) : ledger.length === 0 ? (
                                             <tr><td colSpan="5" className="p-8 text-center text-slate-400">No transactions found.</td></tr>
                                         ) : (
                                             ledger.map((row) => (
-                                                <tr key={row.id} className="hover:bg-slate-50">
-                                                    <td className="p-4 whitespace-nowrap">{new Date(row.date).toLocaleDateString()}</td>
-                                                    <td className="p-4 font-medium text-slate-700">
+                                                <tr key={row.id} className="hover:bg-slate-50 border-b border-slate-300">
+                                                    <td className="p-4 whitespace-nowrap border-r-2 border-slate-800">{new Date(row.date + 'T00:00:00').toLocaleDateString('en-GB')}</td>
+                                                    <td className="p-4 font-medium text-slate-700 border-r-2 border-slate-800">
                                                         {row.description}
                                                         {row.refsStr && <span className="text-xs text-slate-400 block font-normal">Refs: {row.refsStr}</span>}
                                                     </td>
-                                                    <td className="p-4 text-right font-mono text-slate-600">
+                                                    <td className="p-4 text-right font-mono text-slate-600 border-r-2 border-slate-800">
                                                         {row.debit > 0 ? `₹ ${row.debit.toFixed(2)}` : '-'}
                                                     </td>
-                                                    <td className="p-4 text-right font-mono text-green-600 font-semibold">
+                                                    <td className="p-4 text-right font-mono text-green-600 font-semibold border-r-2 border-slate-800">
                                                         {row.credit > 0 ? `₹ ${row.credit.toFixed(2)}` : '-'}
                                                     </td>
                                                     <td className="p-4 text-right font-mono font-bold text-slate-900 bg-slate-50/50">

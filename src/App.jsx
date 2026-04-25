@@ -12,7 +12,8 @@ import {
   Auth,
   Udharinond,
   AdminSettings,
-  Vatap
+  Vatap,
+  DailyReport
 } from './components/pages';
 import { useLanguage } from './lib/language';
 import HomePage from './components/home/HomePage';
@@ -33,7 +34,8 @@ import {
   Settings,
   ListTodo,
   ArrowRight,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ClipboardList
 } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './lib/AuthContext';
@@ -41,6 +43,7 @@ import { useAuth } from './lib/AuthContext';
 const pages = [
   { id: 'dashboard',     nameMr: 'डॅशबोर्ड', nameEn: 'Dashboard', icon: LayoutDashboard, component: Dashboard },
   { id: 'masters',       nameMr: 'मास्टर्स', nameEn: 'Masters', icon: Database,        component: MasterLayout },
+  { id: 'daily-report',  nameMr: 'दैनंदिन अहवाल', nameEn: 'Daily Report', icon: ClipboardList, component: DailyReport },
   { id: 'hishob-patti',  nameMr: 'हिशोब पट्टी', nameEn: 'Hishob Patti', icon: ScrollText,        component: HishobPatti },
   { id: 'vatap',         nameMr: 'वाटप',         nameEn: 'Vatap',        icon: ArrowLeftRight,    component: Vatap },
   { id: 'patti-nond',    nameMr: 'पट्टी नोंद',   nameEn: 'Patti Nond',  icon: FileText,          component: PattiNond },
@@ -51,6 +54,7 @@ const pages = [
   { id: 'udharinond',    nameMr: 'उधारीनोंद', nameEn: 'Udharinond', icon: ListTodo,        component: Udharinond },
   { id: 'settings',      nameMr: 'सेटिंग्ज', nameEn: 'Settings',   icon: Settings,        component: AdminSettings, hideFromSidebar: true },
 ];
+
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');

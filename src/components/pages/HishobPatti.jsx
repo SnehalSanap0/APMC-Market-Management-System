@@ -66,9 +66,7 @@ export default function HishobPatti() {
     const [viewFarmer, setViewFarmer] = useState('');
     const [pattis, setPattis] = useState([]);
 
-    const [showKeyModal, setShowKeyModal] = useState(false);
-    const [securityKey, setSecurityKey] = useState('');
-    const [keyError, setKeyError] = useState('');
+
 
     // Edit State for Item Level
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -424,13 +422,6 @@ export default function HishobPatti() {
     };
 
     const handleDownload = () => {
-        if (securityKey !== '1234') {
-            setKeyError('Invalid security key. Please try again.');
-            return;
-        }
-        setShowKeyModal(false);
-        setSecurityKey('');
-        setKeyError('');
         // Build filename: use first patti's receipt_no + farmer name
         const first = pattis[0];
         const farmerSlug = (first?.farmers?.name || 'Farmer').replace(/\s+/g, '_');
@@ -845,7 +836,7 @@ export default function HishobPatti() {
                     {pattis.length > 0 && (
                         <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-4 print:hidden">
                             <button
-                                onClick={() => setShowKeyModal(true)}
+                                onClick={handleDownload}
                                 className="px-8 py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg shadow-slate-900/20 flex items-center gap-2"
                             >
                                 <Printer size={20} />
@@ -856,52 +847,7 @@ export default function HishobPatti() {
                 </div>
             )}
 
-            {/* Security Key Modal */}
-            {showKeyModal && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-100 print:hidden">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center animate-in zoom-in-95 duration-200">
-                        <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <LockKeyhole size={32} />
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">Enter Security Key</h3>
-                        <p className="text-slate-500 text-sm mb-6">Authentication is required to download or print these pattis.</p>
 
-                        <input
-                            type="password"
-                            autoFocus
-                            placeholder="Enter 4-digit key"
-                            maxLength={4}
-                            className="w-full text-center tracking-wide text-xl py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary mb-2 outline-none"
-                            value={securityKey}
-                            onChange={(e) => {
-                                setSecurityKey(e.target.value);
-                                setKeyError('');
-                            }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleDownload(); }}
-                        />
-                        {keyError && <p className="text-red-500 text-sm mb-4">{keyError}</p>}
-
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => {
-                                    setShowKeyModal(false);
-                                    setSecurityKey('');
-                                    setKeyError('');
-                                }}
-                                className="flex-1 py-3 text-slate-700 bg-slate-100 hover:bg-slate-200 font-semibold rounded-xl transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDownload}
-                                className="flex-1 py-3 text-white bg-primary hover:bg-primary-light font-semibold rounded-xl shadow-lg shadow-primary/20 transition-all"
-                            >
-                                Unlock
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Add Farmer Modal */}
             {showAddFarmerModal && (

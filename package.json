@@ -19,8 +19,10 @@
       "dist/**/*",
       "electron/main.cjs"
     ],
+    "icon": "src/assets/logo.png",
     "win": {
       "target": "nsis",
+      "icon": "src/assets/logo.png",
       "signAndEditExecutable": false
     }
   },

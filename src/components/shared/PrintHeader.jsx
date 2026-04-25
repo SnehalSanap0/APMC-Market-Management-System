@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import logo from '../../assets/logo.png';
 
 export default function PrintHeader({ docTitle, leftInfo = [], rightInfo = [] }) {
-    const [settings, setSettings] = useState({ company_name: 'श्री जय सप्तश्रृंगी व्हेजिटेबल कं.', address: 'Market Yard' });
+    const [settings, setSettings] = useState({ company_name: 'श्री जय सप्तश्रृंगी व्हेजिटेबल कं.', address: 'Market Yard', phone: '' });
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -12,45 +12,53 @@ export default function PrintHeader({ docTitle, leftInfo = [], rightInfo = [] })
         };
         fetchSettings();
     }, []);
+
     return (
-        <div className="border-b-2 border-slate-800 mb-0">
-            {/* Company band */}
-            <div className="flex items-center justify-center gap-4 p-4 bg-slate-100 print:bg-white border-b-2 border-slate-800">
-                <img
-                    src={logo}
-                    alt="Company Logo"
-                    className="w-14 h-14 object-contain"
-                />
-                <div className="text-center">
-                    <h1 className="text-2xl font-black text-slate-900 devanagari leading-tight">
-                        {settings.company_name}
-                    </h1>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mt-0.5">
-                        {settings.address}
-                    </p>
-                    <p className="text-sm font-bold uppercase tracking-widest text-slate-700 mt-1 border-t border-slate-300 pt-1">
-                        {docTitle}
-                    </p>
+        <div className="border-b-[1.5pt] border-slate-900 mb-4 pb-2">
+            {/* Main Branding Section */}
+            <div className="flex items-start justify-between gap-4 py-2">
+                <div className="flex items-center gap-4">
+                    <img
+                        src={logo}
+                        alt="Logo"
+                        className="w-16 h-16 object-contain"
+                    />
+                    <div className="text-left">
+                        <h1 className="text-2xl font-black text-slate-900 devanagari leading-none tracking-tight">
+                            {settings.company_name}
+                        </h1>
+                        <p className="text-[10pt] font-semibold text-slate-600 mt-1">
+                            {settings.address} {settings.phone && `• Ph: ${settings.phone}`}
+                        </p>
+                    </div>
+                </div>
+                <div className="text-right flex flex-col justify-between h-16">
+                    <div className="bg-slate-900 text-white px-3 py-1 text-[11pt] font-black uppercase tracking-[0.1em]">
+                        {docTitle.split('·')[0].trim()}
+                    </div>
+                    <div className="text-slate-500 text-[8pt] font-bold uppercase tracking-widest">
+                        {docTitle.split('·')[1]?.trim() || ''}
+                    </div>
                 </div>
             </div>
 
-            {/* Meta row: left info + right info */}
+            {/* High-Density Meta Data Grid */}
             {(leftInfo.length > 0 || rightInfo.length > 0) && (
-                <div className="flex justify-between items-start px-4 py-3 bg-white">
-                    <div className="space-y-0.5">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-1 mt-4 px-1 py-2 border-t border-slate-200">
+                    <div className="space-y-1">
                         {leftInfo.map(({ label, value }) => (
-                            <p key={label} className="text-sm text-slate-700">
-                                <span className="font-bold uppercase text-slate-500 text-xs">{label}: </span>
-                                <span className="font-semibold">{value}</span>
-                            </p>
+                            <div key={label} className="flex items-baseline gap-2">
+                                <span className="text-[8pt] font-extrabold uppercase text-slate-400 whitespace-nowrap min-w-[100px]">{label}:</span>
+                                <span className="text-[9.5pt] font-bold text-slate-800">{value}</span>
+                            </div>
                         ))}
                     </div>
-                    <div className="text-right space-y-0.5">
+                    <div className="space-y-1">
                         {rightInfo.map(({ label, value }) => (
-                            <p key={label} className="text-sm text-slate-700">
-                                <span className="font-bold uppercase text-slate-500 text-xs">{label}: </span>
-                                <span className="font-semibold font-mono">{value}</span>
-                            </p>
+                            <div key={label} className="flex items-baseline justify-end gap-2">
+                                <span className="text-[8pt] font-extrabold uppercase text-slate-400 whitespace-nowrap">{label}:</span>
+                                <span className="text-[9.5pt] font-bold text-slate-900 font-mono">{value}</span>
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -58,3 +66,4 @@ export default function PrintHeader({ docTitle, leftInfo = [], rightInfo = [] })
         </div>
     );
 }
+

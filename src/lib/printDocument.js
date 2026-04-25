@@ -22,10 +22,6 @@ export async function printDocument(element, filename, options = {}) {
 
     const html = element.innerHTML;
 
-    /* ------------------------------------------------------------------
-     * 1. Copy all stylesheets from the live page into the popup so that
-     *    ALL Tailwind classes (including print: variants) work correctly.
-     * ------------------------------------------------------------------ */
     const styleLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
         .map(link => `<link rel="stylesheet" href="${link.href}">`)
         .join('\n');
@@ -34,63 +30,40 @@ export async function printDocument(element, filename, options = {}) {
         .map(style => style.outerHTML)
         .join('\n');
 
-    /* ------------------------------------------------------------------
-     * 2. Open a clean popup window (same origin — can load all assets).
-     * ------------------------------------------------------------------ */
-    const popup = window.open('', `_print_${Date.now()}`, 'width=1000,height=800');
+    const popup = window.open('', `_print_${Date.now()}`, 'width=1100,height=850');
     if (!popup) {
         alert('Please allow popups for this site to print documents.');
         return;
     }
 
-    /* ------------------------------------------------------------------
-     * 3. Write a complete, standalone HTML document into the popup.
-     *    - @page sets paper size, orientation, and margins
-     *    - @top-center / @bottom-center add the separator lines the user
-     *      requested at the boundary of the browser's default header/footer
-     *    - All Tailwind print: variants work because the stylesheets are
-     *      cloned from the live page
-     * ------------------------------------------------------------------ */
     popup.document.write(`<!DOCTYPE html>
 <html lang="mr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${filename}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     ${styleLinks}
     ${inlineStyles}
     <style>
-        /* ── Page Setup ─────────────────────────────────────────────── */
+        /* ── Modern Premium Print System ──────────────────────────── */
+        
         @page {
             size: ${size} ${orientation};
-            margin: 15mm 12mm 15mm 12mm;
+            margin: 12mm 10mm 12mm 10mm;
         }
 
-        /* ── Separator Lines (Repeating on every page) ──────────────── */
-        .print-header-line {
-            position: fixed;
-            top: -10mm;
-            left: 0;
-            right: 0;
-            border-bottom: 0.5pt solid #cbd5e1;
-            height: 1px;
-            z-index: 9999;
-        }
-
-        .print-footer-line {
-            position: fixed;
-            bottom: -10mm;
-            left: 0;
-            right: 0;
-            border-top: 0.5pt solid #cbd5e1;
-            height: 1px;
-            z-index: 9999;
+        :root {
+            --print-primary: #0f172a;
+            --print-slate-600: #475569;
+            --print-slate-200: #e2e8f0;
+            --print-slate-50: #f8fafc;
         }
 
         /* ── Base Reset ────────────────────────────────────────────── */
-        *,
-        *::before,
-        *::after {
+        *, *::before, *::after {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             box-sizing: border-box;
@@ -103,25 +76,53 @@ export async function printDocument(element, filename, options = {}) {
             height: auto !important;
             margin: 0;
             padding: 0;
+            font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
         body {
-            padding-top: 5mm;
-            padding-bottom: 5mm;
+            padding: 0;
         }
 
         .no-print { display: none !important; }
 
-        /* ── Table & Layout Logic ──────────────────────────────────── */
+        /* ── Typography & Consistency ──────────────────────────────── */
+        h1, h2, h3, h4, .font-bold { font-weight: 700 !important; }
+        .text-xs { font-size: 7.5pt !important; line-height: 1.2 !important; }
+        .text-sm { font-size: 9pt !important; line-height: 1.3 !important; }
+        .font-mono { font-family: 'JetBrains Mono', 'Courier New', monospace !important; }
+
+        /* ── High-Density Table Logic ─────────────────────────────── */
         table { 
-            width: 100% !important; 
+            width: 99.8% !important; 
+            max-width: 99.8% !important;
             border-collapse: collapse !important; 
             table-layout: auto !important;
+            margin-bottom: 5mm;
+            border: 1pt solid #000 !important;
+            margin-left: auto;
+            margin-right: auto;
         }
 
-        th, td { 
+        th {
+            background-color: var(--print-slate-50) !important;
+            color: #000 !important;
+            font-weight: 700 !important;
+            border: 1pt solid #000 !important;
+            padding: 2.5mm 1.5mm !important;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        td { 
+            border: 0.5pt solid #000 !important;
+            padding: 1.8mm 1.5mm !important;
+            vertical-align: middle;
             word-wrap: break-word !important; 
-            overflow-wrap: break-word !important; 
+        }
+
+        tr:nth-child(even) {
+            background-color: rgba(248, 250, 252, 0.5) !important;
         }
 
         /* Essential for multi-page tables */
@@ -134,13 +135,39 @@ export async function printDocument(element, filename, options = {}) {
             break-inside: auto !important;
         }
 
+        /* ── Page Break Utilities ────────────────────────────────── */
+        .page-break-before { break-before: page !important; }
+        .page-break-after { break-after: page !important; }
+        .break-inside-avoid { break-inside: avoid !important; }
+        
+        /* ── Premium Elements ────────────────────────────────────── */
+        .print-only-shadow { 
+            border: 1pt solid var(--print-slate-200) !important;
+        }
+        
+        /* Hide scrollbars just in case */
+        ::-webkit-scrollbar { display: none; }
+
+        /* Forced reset for Tailwind shadows and rounding */
         [class*="shadow"]  { box-shadow: none !important; }
         [class*="rounded"] { border-radius: 0 !important; }
+        
+        .print-content {
+            width: 100% !important;
+            overflow-x: visible !important;
+        }
+
+        /* Special case for 30+ entries: relaxed but efficient padding */
+        .dense-table td {
+            padding: 2.2mm 2mm !important;
+            font-size: 8.5pt !important;
+        }
+        .dense-table th {
+            padding: 3mm 2mm !important;
+        }
     </style>
 </head>
 <body>
-    <div class="print-header-line"></div>
-    <div class="print-footer-line"></div>
     <div class="print-content">
         ${html}
     </div>
@@ -150,16 +177,12 @@ export async function printDocument(element, filename, options = {}) {
     popup.document.close();
     popup.focus();
 
-    /* ------------------------------------------------------------------
-     * 4. Wait for external stylesheets to fully load before printing.
-     *    1 200 ms is enough for local/LAN assets; increase if on slow CDN.
-     * ------------------------------------------------------------------ */
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    // Wait for fonts and styles to settle
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     popup.print();
 
-    /* Close the popup after the user finishes with the print dialog */
     popup.addEventListener('afterprint', () => popup.close());
-    /* Fallback: close after 60 s in case afterprint never fires */
     setTimeout(() => { try { popup.close(); } catch (_) {} }, 60_000);
 }
+

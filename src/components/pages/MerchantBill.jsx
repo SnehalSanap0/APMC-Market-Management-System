@@ -42,9 +42,7 @@ export default function MerchantBill() {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedMerchant, setSelectedMerchant] = useState('');
 
-    const [showKeyModal, setShowKeyModal] = useState(false);
-    const [securityKey, setSecurityKey] = useState('');
-    const [keyError, setKeyError] = useState('');
+
 
     // Fetched Data
     const [items, setItems] = useState([]);
@@ -214,14 +212,6 @@ export default function MerchantBill() {
     const nakkiBaki = ekunYene - ledgerStats.jama;
 
     const handleDownload = () => {
-        const expectedKey = settings?.mobile_number ? settings.mobile_number.slice(-4) : '1234';
-        if (securityKey !== expectedKey) {
-            setKeyError('Invalid security key.');
-            return;
-        }
-        setShowKeyModal(false);
-        setSecurityKey('');
-        setKeyError('');
         const merchantName = (merchants.find(m => m.id === selectedMerchant)?.name || 'Merchant').replace(/\s+/g, '_');
         const filename = billNo
             ? `${billNo}_${merchantName}`
@@ -295,14 +285,14 @@ export default function MerchantBill() {
                     </div>
 
                     {/* Items Table */}
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="border border-slate-200 rounded-lg overflow-hidden print:border-none">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-slate-600 text-sm uppercase">
-                                <tr>
-                                    <th className="p-3 border-b">{t('माल', 'Product')}</th>
-                                    <th className="p-3 border-b text-center">{t('वजन', 'Weight/Qty')}</th>
-                                    <th className="p-3 border-b text-center">{t('दर', 'Rate')}</th>
-                                    <th className="p-3 border-b text-right">{t('रक्कम', 'Amount')}</th>
+                                <tr className="border-b-2 border-slate-800">
+                                    <th className="p-3 border-r-2 border-slate-800">{t('माल', 'Product')}</th>
+                                    <th className="p-3 border-r-2 border-slate-800 text-center">{t('वजन', 'Weight/Qty')}</th>
+                                    <th className="p-3 border-r-2 border-slate-800 text-center">{t('दर', 'Rate')}</th>
+                                    <th className="p-3 text-right">{t('रक्कम', 'Amount')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -314,12 +304,12 @@ export default function MerchantBill() {
                                     </tr>
                                 ) : (
                                     items.map((item, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50">
-                                            <td className="p-3 font-medium">
+                                        <tr key={idx} className="hover:bg-slate-50 border-b border-slate-200">
+                                            <td className="p-3 font-medium border-r-2 border-slate-800">
                                                 {item.productName} <span className="text-slate-400 text-xs">({item.unit})</span>
                                             </td>
-                                            <td className="p-3 text-center text-slate-600">{item.weight}</td>
-                                            <td className="p-3 text-center text-slate-600">{item.rate}</td>
+                                            <td className="p-3 text-center text-slate-600 border-r-2 border-slate-800">{item.weight}</td>
+                                            <td className="p-3 text-center text-slate-600 border-r-2 border-slate-800">{item.rate}</td>
                                             <td className="p-3 text-right font-mono font-bold text-slate-700">
                                                 {item.amount.toFixed(2)}
                                             </td>
@@ -342,7 +332,7 @@ export default function MerchantBill() {
 
                     {/* Vatap Section */}
                     {vatapEntries.length > 0 && (
-                        <div className="border border-amber-200 rounded-lg overflow-hidden">
+                        <div className="border border-amber-200 rounded-lg overflow-hidden print:border-none">
                             <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
                                 <h3 className="font-semibold text-amber-800 text-sm uppercase tracking-wide">
                                     {t('वाटप (माल वितरण)', 'Vatap (Goods Distribution)')}
@@ -350,19 +340,19 @@ export default function MerchantBill() {
                             </div>
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-amber-50/50 text-slate-500 uppercase text-xs">
-                                    <tr>
-                                        <th className="px-4 py-2 border-b border-amber-100">{t('प्रकार', 'Type')}</th>
-                                        <th className="px-4 py-2 border-b border-amber-100">{t('व्यापारी', 'Merchant')}</th>
-                                        <th className="px-4 py-2 border-b border-amber-100">{t('माल', 'Product')}</th>
-                                        <th className="px-4 py-2 border-b border-amber-100 text-center">{t('वजन', 'Wt')}</th>
-                                        <th className="px-4 py-2 border-b border-amber-100 text-center">{t('दर', 'Rate')}</th>
-                                        <th className="px-4 py-2 border-b border-amber-100 text-right">{t('रक्कम', 'Amount')}</th>
+                                    <tr className="border-b-2 border-slate-800">
+                                        <th className="px-4 py-2 border-r-2 border-slate-800">{t('प्रकार', 'Type')}</th>
+                                        <th className="px-4 py-2 border-r-2 border-slate-800">{t('व्यापारी', 'Merchant')}</th>
+                                        <th className="px-4 py-2 border-r-2 border-slate-800">{t('माल', 'Product')}</th>
+                                        <th className="px-4 py-2 border-r-2 border-slate-800 text-center">{t('वजन', 'Wt')}</th>
+                                        <th className="px-4 py-2 border-r-2 border-slate-800 text-center">{t('दर', 'Rate')}</th>
+                                        <th className="px-4 py-2 text-right">{t('रक्कम', 'Amount')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-amber-50">
                                     {vatapEntries.map((v, idx) => (
-                                        <tr key={v.id || idx} className={v.type === 'received' ? 'bg-green-50/40' : 'bg-red-50/40'}>
-                                            <td className="px-4 py-2">
+                                        <tr key={v.id || idx} className={`${v.type === 'received' ? 'bg-green-50/40' : 'bg-red-50/40'} border-b border-amber-100`}>
+                                            <td className="px-4 py-2 border-r-2 border-slate-800">
                                                 {v.type === 'received' ? (
                                                     <span className="inline-block px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-semibold">
                                                         {t('मिळाले', 'Received')}
@@ -373,19 +363,19 @@ export default function MerchantBill() {
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-2 font-medium text-slate-700">
+                                            <td className="px-4 py-2 font-medium text-slate-700 border-r-2 border-slate-800">
                                                 {v.type === 'received'
                                                     ? (v.from_merchant?.name || '—')
                                                     : (v.to_merchant?.name || '—')}
                                             </td>
-                                            <td className="px-4 py-2 text-slate-600">
+                                            <td className="px-4 py-2 text-slate-600 border-r-2 border-slate-800">
                                                 {v.products?.name}
                                                 {v.products?.unit && (
                                                     <span className="text-slate-400 text-xs ml-1">({v.products.unit})</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-2 text-center text-slate-500">{v.weight ?? '—'}</td>
-                                            <td className="px-4 py-2 text-center text-slate-500">{v.rate ?? '—'}</td>
+                                            <td className="px-4 py-2 text-center text-slate-500 border-r-2 border-slate-800">{v.weight ?? '—'}</td>
+                                            <td className="px-4 py-2 text-center text-slate-500 border-r-2 border-slate-800">{v.rate ?? '—'}</td>
                                             <td className={`px-4 py-2 text-right font-mono font-bold ${v.type === 'received' ? 'text-green-700' : 'text-red-700'}`}>
                                                 {v.type === 'received' ? '+' : '−'} ₹ {parseFloat(v.amount).toFixed(2)}
                                             </td>
@@ -480,7 +470,7 @@ export default function MerchantBill() {
 
                 <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-4 print:hidden">
                     <button
-                        onClick={() => setShowKeyModal(true)}
+                        onClick={handleDownload}
                         disabled={loading || (items.length === 0 && vatapEntries.length === 0)}
                         className="px-8 py-3 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg shadow-slate-900/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -490,52 +480,7 @@ export default function MerchantBill() {
                 </div>
             </div>
 
-            {/* Security Key Modal */}
-            {showKeyModal && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] print:hidden">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center animate-in zoom-in-95 duration-200">
-                        <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <LockKeyhole size={32} />
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">{t('Security Key', 'Security Key')}</h3>
-                        <p className="text-slate-500 text-sm mb-6">{t('डाउनलोड किंवा प्रिंट करण्यासाठी कृपया तुमचा सुरक्षा कोड वापरा (डीफॉल्ट: तुमच्या नोंदणीकृत मोबाइल नंबरचे शेवटचे ४ अंक).', 'Enter your security key (default: last 4 digits of your registered mobile number) to download or print this bill.')}</p>
 
-                        <input
-                            type="password"
-                            autoFocus
-                            placeholder="Enter 4-digit key"
-                            maxLength={4}
-                            className="w-full text-center tracking-wide text-xl py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary mb-2 outline-none"
-                            value={securityKey}
-                            onChange={(e) => {
-                                setSecurityKey(e.target.value);
-                                setKeyError('');
-                            }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleDownload(); }}
-                        />
-                        {keyError && <p className="text-red-500 text-sm mb-4">{keyError}</p>}
-
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => {
-                                    setShowKeyModal(false);
-                                    setSecurityKey('');
-                                    setKeyError('');
-                                }}
-                                className="flex-1 py-3 text-slate-700 bg-slate-100 hover:bg-slate-200 font-semibold rounded-xl transition-all"
-                            >
-                                {t('रद्द करा', 'Cancel')}
-                            </button>
-                            <button
-                                onClick={handleDownload}
-                                className="flex-1 py-3 text-white bg-primary hover:bg-primary-light font-semibold rounded-xl shadow-lg shadow-primary/20 transition-all"
-                            >
-                                {t('अनलॉक', 'Unlock')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
